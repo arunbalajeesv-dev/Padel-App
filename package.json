@@ -1,0 +1,26 @@
+{
+  "name": "padel-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Backend API for the Padel App",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "vitest"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "firebase-admin": "^14.1.0",
+    "helmet": "^8.3.0"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}
