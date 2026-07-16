@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Padel App - Confirm Match Screen</title>
+<style>
+  /* Base Reset & Typography */
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  body {
+    background-color: #f0f0f0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+    color: #333;
+  }
+
+  /* Phone Frame Constraints */
+  .phone-frame {
+    width: 390px;
+    height: 844px;
+    background-color: #ffffff;
+    border: 6px solid #222;
+    border-radius: 40px;
+    position: relative;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e0e0e0;
+    background: #fff;
+    z-index: 10;
+    min-height: 60px;
+    gap: 16px;
+  }
+  .back-btn {
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    flex-grow: 1;
+  }
+
+  /* Scrollable Content Area */
+  .content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  
+  /* Hide scrollbar for cleaner wireframe look */
+  .content::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Info Line */
+  .info-line {
+    font-size: 14px;
+    color: #666;
+    padding: 12px 16px;
+    background: #f8f8f8;
+    border-radius: 8px;
+    border: 1px dashed #ccc;
+    text-align: center;
+  }
+
+  /* Match Card */
+  .match-card {
+    border: 1px solid #d0d0d0;
+    border-radius: 12px;
+    padding: 16px;
+    background: #fff;
+  }
+  .match-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .match-teams {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .team {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .team-player {
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .vs {
+    font-size: 12px;
+    font-weight: bold;
+    color: #999;
+  }
+  .match-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 12px;
+    border-top: 1px solid #eee;
+  }
+  .match-score {
+    font-size: 16px;
+    font-weight: 700;
+  }
+  
+  /* Chips */
+  .chip {
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+  }
+  .chip-pending {
+    border: 1px solid #666;
+    color: #444;
+    background: transparent;
+  }
+
+  /* Confirmation Status Section */
+  .status-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    position: relative; /* For annotation positioning */
+  }
+  .section-header {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .status-row {
+    display: flex;
+    align-items: center;
+    padding: 8px 0;
+    min-height: 44px; /* Touch target enforcement */
+    border-bottom: 1px solid #eee;
+  }
+  .status-row:last-child {
+    border-bottom: none;
+  }
+  .avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background-color: #d0d0d0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 12px;
+    color: #666;
+    flex-shrink: 0;
+  }
+  .player-name {
+    margin-left: 12px;
+    font-size: 15px;
+    font-weight: 500;
+    flex-grow: 1;
+  }
+  .status-icon {
+    font-size: 18px;
+    font-weight: bold;
+    width: 24px;
+    text-align: center;
+  }
+  .icon-tick {
+    color: #333;
+  }
+  .icon-hollow {
+    color: #aaa;
+  }
+
+  /* Actions Area */
+  .actions-area {
+    margin-top: auto; /* Pushes to bottom if content is short */
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-top: 24px;
+  }
+  .btn-primary {
+    background: #222;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    min-height: 44px; /* Touch Target constraint */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    cursor: pointer;
+  }
+  .btn-link {
+    background: none;
+    color: #555;
+    border: none;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: underline;
+    min-height: 44px; /* Touch Target constraint */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    cursor: pointer;
+  }
+  .caption {
+    font-size: 12px;
+    color: #777;
+    text-align: center;
+    margin-top: 8px;
+  }
+
+  /* Annotations */
+  .annotation {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    background-color: #000;
+    color: #fff;
+    border-radius: 50%;
+    font-size: 10px;
+    font-weight: bold;
+    margin-left: 8px;
+    vertical-align: text-top;
+  }
+  .legend-box {
+    width: 390px;
+    margin-top: 24px;
+    background: #fff;
+    border: 1px solid #ccc;
+    padding: 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #444;
+  }
+  .legend-title {
+    font-weight: bold;
+    margin-bottom: 8px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 4px;
+  }
+  .legend-item {
+    margin-bottom: 6px;
+    line-height: 1.4;
+  }
+</style>
+</head>
+<body>
+
+  <div class="phone-frame">
+    
+    <div class="header">
+      <div class="back-btn">←</div>
+      <h1>Confirm match</h1>
+    </div>
+
+    <div class="content">
+
+      <div class="info-line">
+        Karthik logged this match 2 hours ago.
+      </div>
+
+      <div class="match-card">
+        <div class="match-header">
+          <span>Today</span>
+          <span>OMR Padel Arena</span>
+        </div>
+        <div class="match-teams">
+          <div class="team">
+            <span class="team-player">Arjun</span>
+            <span class="team-player">Priya</span>
+          </div>
+          <div class="vs">VS</div>
+          <div class="team" style="text-align: right;">
+            <span class="team-player">Karthik</span>
+            <span class="team-player">Meena</span>
+          </div>
+        </div>
+        <div class="match-footer">
+          <div class="match-score">6-3, 6-4</div>
+          <div class="chip chip-pending">Pending</div>
+        </div>
+      </div>
+
+      <div class="status-section">
+        <div class="section-header">
+          Confirmation status <span class="annotation">1</span>
+        </div>
+        
+        <div class="status-row">
+          <div class="avatar">X</div>
+          <div class="player-name">Arjun (You)</div>
+          <div class="status-icon icon-hollow">○</div>
+        </div>
+        
+        <div class="status-row">
+          <div class="avatar">X</div>
+          <div class="player-name">Priya</div>
+          <div class="status-icon icon-tick">✓</div>
+        </div>
+        
+        <div class="status-row">
+          <div class="avatar">X</div>
+          <div class="player-name">Karthik</div>
+          <div class="status-icon icon-tick">✓</div>
+        </div>
+        
+        <div class="status-row">
+          <div class="avatar">X</div>
+          <div class="player-name">Meena</div>
+          <div class="status-icon icon-hollow">○</div>
+        </div>
+      </div>
+
+      <div class="actions-area">
+        <button class="btn-primary">Yes, this is correct</button>
+        <button class="btn-link">Something's wrong — dispute</button>
+        <div class="caption">Ratings update once both teams confirm.</div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <div class="legend-box">
+    <div class="legend-title">Annotations Legend</div>
+    <div class="legend-item"><strong>1. Anti-fake-match rule:</strong> Requires at least one player from each team — this is the core anti-fake-match rule.</div>
+  </div>
+
+</body>
+</html>

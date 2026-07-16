@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Padel App - Log Match Flow</title>
+<style>
+  /* Base Reset & Typography */
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  body {
+    background-color: #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    padding: 40px;
+    color: #333;
+  }
+
+  /* Layout */
+  .flow-wrapper {
+    display: flex;
+    gap: 40px;
+    overflow-x: auto;
+    padding-bottom: 24px;
+  }
+  .screen-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+  .screen-label {
+    font-size: 16px;
+    font-weight: 700;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  /* Phone Frame Constraints */
+  .phone-frame {
+    width: 390px;
+    height: 844px;
+    background-color: #ffffff;
+    border: 6px solid #222;
+    border-radius: 40px;
+    position: relative;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e0e0e0;
+    background: #fff;
+    z-index: 10;
+    min-height: 60px;
+    gap: 16px;
+  }
+  .back-btn {
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    flex-grow: 1;
+  }
+
+  /* Step Indicator */
+  .step-indicator {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px 0 8px 0;
+    background: #fff;
+  }
+  .step-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #d0d0d0;
+  }
+  .step-dot.active {
+    background-color: #222;
+  }
+
+  /* Scrollable Content Area */
+  .content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  .content::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Footer Actions */
+  .footer {
+    padding: 16px 20px 32px 20px;
+    border-top: 1px solid #e0e0e0;
+    background: #fff;
+  }
+
+  /* Buttons */
+  .btn-primary {
+    background: #222;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    cursor: pointer;
+  }
+  .btn-primary:disabled {
+    background: #d0d0d0;
+    color: #888;
+    cursor: not-allowed;
+  }
+  .btn-link {
+    background: none;
+    color: #555;
+    border: none;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: underline;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    cursor: pointer;
+  }
+
+  /* Search Input */
+  .search-input {
+    width: 100%;
+    min-height: 44px;
+    padding: 0 16px;
+    border: 1px solid #aaa;
+    border-radius: 8px;
+    font-size: 16px;
+    background: #f9f9f9;
+  }
+
+  /* Court List */
+  .court-list {
+    display: flex;
+    flex-direction: column;
+  }
+  .court-row {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 64px;
+    padding: 12px 0;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+  }
+  .court-row .name {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .court-row .meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .court-row .area {
+    font-size: 13px;
+    color: #666;
+  }
+  .tag {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    background: #e0e0e0;
+    border-radius: 4px;
+    color: #333;
+    text-transform: uppercase;
+  }
+
+  /* Player Selection */
+  .section-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+  }
+  .player-row {
+    display: flex;
+    align-items: center;
+    padding: 8px 0;
+    min-height: 56px;
+    border-bottom: 1px solid #eee;
+  }
+  .avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background-color: #d0d0d0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: #666;
+    flex-shrink: 0;
+  }
+  .player-info {
+    margin-left: 12px;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .player-info .name {
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .player-info .area {
+    font-size: 13px;
+    color: #777;
+  }
+  .player-rating {
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .add-slot {
+    display: flex;
+    align-items: center;
+    min-height: 56px;
+    border: 1px dashed #aaa;
+    border-radius: 8px;
+    padding: 0 16px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    background: #fcfcfc;
+  }
+  .add-slot .icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #ddd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    margin-right: 12px;
+  }
+  .add-slot .text {
+    font-size: 15px;
+    font-weight: 500;
+    color: #555;
+  }
+
+  /* Score Entry */
+  .matchup-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8f8f8;
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid #e0e0e0;
+  }
+  .matchup-header .team {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+  }
+  .matchup-header .team:last-child {
+    text-align: right;
+  }
+  .matchup-header .player {
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .matchup-header .vs {
+    font-size: 14px;
+    font-weight: 800;
+    color: #999;
+    padding: 0 16px;
+  }
+  .set-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 0;
+    border-bottom: 1px solid #eee;
+  }
+  .set-label {
+    font-size: 16px;
+    font-weight: 700;
+    width: 60px;
+  }
+  .stepper-group {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+  .stepper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .stepper-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 18px;
+    border: 1px solid #aaa;
+    background: #fff;
+    font-size: 18px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  .stepper-val {
+    font-size: 20px;
+    font-weight: 700;
+    width: 20px;
+    text-align: center;
+  }
+
+  /* Match Card & Info Box */
+  .match-card {
+    border: 1px solid #d0d0d0;
+    border-radius: 12px;
+    padding: 16px;
+    background: #fff;
+  }
+  .match-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .match-teams {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .match-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 12px;
+    border-top: 1px solid #eee;
+  }
+  .match-score {
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .chip {
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+  }
+  .chip-pending {
+    border: 1px solid #666;
+    color: #444;
+    background: transparent;
+  }
+  .info-box {
+    background: #f0f0f0;
+    border: 1px solid #ccc;
+    padding: 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #444;
+    text-align: center;
+  }
+
+  /* Annotations */
+  .annotation {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    background-color: #000;
+    color: #fff;
+    border-radius: 50%;
+    font-size: 12px;
+    font-weight: bold;
+    position: absolute;
+    z-index: 20;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  }
+  .legend-box {
+    width: 100%;
+    max-width: 1680px;
+    margin-top: 24px;
+    background: #fff;
+    border: 1px solid #ccc;
+    padding: 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #444;
+  }
+  .legend-title {
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 8px;
+  }
+  .legend-item {
+    margin-bottom: 8px;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+
+  <div class="flow-wrapper">
+    
+    <div class="screen-container">
+      <div class="screen-label">Step 1</div>
+      <div class="phone-frame">
+        <div class="header">
+          <div class="back-btn">←</div>
+          <h1>Log a match</h1>
+        </div>
+        <div class="step-indicator">
+          <div class="step-dot active"></div>
+          <div class="step-dot"></div>
+          <div class="step-dot"></div>
+          <div class="step-dot"></div>
+        </div>
+        
+        <div class="content" style="position: relative;">
+          <input type="text" class="search-input" placeholder="Search courts...">
+          <div class="annotation" style="top: 80px; right: 20px;">1</div>
+          
+          <div class="court-list">
+            <div class="court-row">
+              <div class="name">OMR Padel Arena</div>
+              <div class="meta">
+                <span class="area">OMR</span>
+              </div>
+            </div>
+            <div class="court-row">
+              <div class="name">Adyar Racquet Club</div>
+              <div class="meta">
+                <span class="area">Adyar</span>
+                <span class="tag">Partner court</span>
+              </div>
+            </div>
+            <div class="court-row">
+              <div class="name">Velachery Padel Hub</div>
+              <div class="meta">
+                <span class="area">Velachery</span>
+              </div>
+            </div>
+            <div class="court-row">
+              <div class="name">ECR Sports Point</div>
+              <div class="meta">
+                <span class="area">ECR</span>
+              </div>
+            </div>
+            <div class="court-row">
+              <div class="name">Anna Nagar Padel</div>
+              <div class="meta">
+                <span class="area">Anna Nagar</span>
+                <span class="tag">Partner court</span>
+              </div>
+            </div>
+            <div class="court-row">
+              <div class="name">Nungambakkam Tennis & Padel</div>
+              <div class="meta">
+                <span class="area">Nungambakkam</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <button class="btn-primary" disabled>Next</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen-container">
+      <div class="screen-label">Step 2</div>
+      <div class="phone-frame">
+        <div class="header">
+          <div class="back-btn">←</div>
+          <h1>Log a match</h1>
+        </div>
+        <div class="step-indicator">
+          <div class="step-dot"></div>
+          <div class="step-dot active"></div>
+          <div class="step-dot"></div>
+          <div class="step-dot"></div>
+        </div>
+        
+        <div class="content">
+          <div>
+            <div class="section-title">Your team</div>
+            <div class="player-row">
+              <div class="avatar">X</div>
+              <div class="player-info">
+                <div class="name">Arjun (You)</div>
+                <div class="area">OMR</div>
+              </div>
+              <div class="player-rating">3.4</div>
+            </div>
+            <div class="add-slot" style="margin-top: 8px;">
+              <div class="icon">+</div>
+              <div class="text">Add partner</div>
+            </div>
+          </div>
+
+          <div style="margin-top: 16px;">
+            <div class="section-title">Opponents</div>
+            <div class="add-slot">
+              <div class="icon">+</div>
+              <div class="text">Add player</div>
+            </div>
+            <div class="add-slot">
+              <div class="icon">+</div>
+              <div class="text">Add player</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <button class="btn-primary">Next</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen-container">
+      <div class="screen-label">Step 3</div>
+      <div class="phone-frame">
+        <div class="header">
+          <div class="back-btn">←</div>
+          <h1>Log a match</h1>
+        </div>
+        <div class="step-indicator">
+          <div class="step-dot"></div>
+          <div class="step-dot"></div>
+          <div class="step-dot active"></div>
+          <div class="step-dot"></div>
+        </div>
+        
+        <div class="content">
+          <div class="matchup-header">
+            <div class="team">
+              <span class="player">Arjun</span>
+              <span class="player">Priya</span>
+            </div>
+            <div class="vs">VS</div>
+            <div class="team">
+              <span class="player">Karthik</span>
+              <span class="player">Ananya</span>
+            </div>
+          </div>
+
+          <div class="score-entry">
+            <div class="set-row">
+              <div class="set-label">Set 1</div>
+              <div class="stepper-group">
+                <div class="stepper">
+                  <div class="stepper-btn">-</div>
+                  <div class="stepper-val">6</div>
+                  <div class="stepper-btn">+</div>
+                </div>
+                <div class="stepper">
+                  <div class="stepper-btn">-</div>
+                  <div class="stepper-val">4</div>
+                  <div class="stepper-btn">+</div>
+                </div>
+              </div>
+            </div>
+            <div class="set-row">
+              <div class="set-label">Set 2</div>
+              <div class="stepper-group">
+                <div class="stepper">
+                  <div class="stepper-btn">-</div>
+                  <div class="stepper-val">3</div>
+                  <div class="stepper-btn">+</div>
+                </div>
+                <div class="stepper">
+                  <div class="stepper-btn">-</div>
+                  <div class="stepper-val">6</div>
+                  <div class="stepper-btn">+</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <button class="btn-link">+ Add set</button>
+        </div>
+
+        <div class="footer">
+          <button class="btn-primary">Next</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen-container">
+      <div class="screen-label">Step 4</div>
+      <div class="phone-frame">
+        <div class="header">
+          <div class="back-btn">←</div>
+          <h1>Log a match</h1>
+        </div>
+        <div class="step-indicator">
+          <div class="step-dot"></div>
+          <div class="step-dot"></div>
+          <div class="step-dot"></div>
+          <div class="step-dot active"></div>
+        </div>
+        
+        <div class="content" style="position: relative;">
+          <div class="annotation" style="top: 8px; right: 20px;">2</div>
+          
+          <div class="match-card">
+            <div class="match-header">
+              <span>Today</span>
+              <span>OMR Padel Arena</span>
+            </div>
+            <div class="match-teams">
+              <div class="team" style="display:flex; flex-direction:column; gap:4px;">
+                <span style="font-size:14px; font-weight:500;">Arjun</span>
+                <span style="font-size:14px; font-weight:500;">Priya</span>
+              </div>
+              <div style="font-size:12px; font-weight:bold; color:#999;">VS</div>
+              <div class="team" style="display:flex; flex-direction:column; gap:4px; text-align:right;">
+                <span style="font-size:14px; font-weight:500;">Karthik</span>
+                <span style="font-size:14px; font-weight:500;">Ananya</span>
+              </div>
+            </div>
+            <div class="match-footer">
+              <div class="match-score">6-4, 3-6, 7-5</div>
+              <div class="chip chip-pending">Pending</div>
+            </div>
+          </div>
+
+          <div class="info-box">
+            This match will count once at least one player from the other team confirms it.
+          </div>
+        </div>
+
+        <div class="footer">
+          <button class="btn-primary">Submit match</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="legend-box">
+    <div class="legend-title">Annotations Legend</div>
+    <div class="legend-item"><strong>1. Directory lock:</strong> Court must exist in our directory — this blocks fake-venue matches.</div>
+    <div class="legend-item"><strong>2. Match state:</strong> Match is created as Pending. No ratings change yet.</div>
+  </div>
+
+</body>
+</html>

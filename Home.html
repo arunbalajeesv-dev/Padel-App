@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Padel App - Home Screen</title>
+<style>
+  /* Base Reset & Typography */
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  body {
+    background-color: #f0f0f0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+    color: #333;
+  }
+
+  /* Phone Frame Constraints */
+  .phone-frame {
+    width: 390px;
+    height: 844px;
+    background-color: #ffffff;
+    border: 6px solid #222;
+    border-radius: 40px;
+    position: relative;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e0e0e0;
+    background: #fff;
+    z-index: 10;
+    min-height: 60px;
+  }
+  .header h1 {
+    font-size: 20px;
+    font-weight: 700;
+  }
+  .bell-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .bell {
+    width: 24px;
+    height: 24px;
+    background-color: #e0e0e0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #666;
+  }
+  .badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background-color: #222;
+    color: #fff;
+    font-size: 10px;
+    font-weight: bold;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Scrollable Content Area */
+  .content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 20px 80px 20px; /* Extra bottom padding for tab bar */
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  
+  /* Hide scrollbar for cleaner wireframe look */
+  .content::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Hero Rating Card */
+  .rating-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px;
+    background: #f8f8f8;
+    border-radius: 12px;
+    border: 1px solid #e0e0e0;
+  }
+  .rating-badge .number {
+    font-size: 56px;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .rating-badge .tier {
+    font-size: 16px;
+    font-weight: 600;
+    color: #555;
+    margin-bottom: 16px;
+  }
+  .rating-badge .reliability-container {
+    width: 100%;
+    max-width: 200px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+  .reliability-container span {
+    font-size: 12px;
+    color: #555;
+    font-weight: 500;
+  }
+  .reliability-bar {
+    width: 100%;
+    height: 6px;
+    background-color: #e0e0e0;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .reliability-fill {
+    width: 85%;
+    height: 100%;
+    background-color: #555;
+  }
+  
+  /* Delta Pill */
+  .delta-pill {
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 13px;
+    font-weight: 700;
+    background: #e0e0e0;
+    color: #222;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  /* Sections */
+  .section-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .section-header h2 {
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .annotation {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    background-color: #000;
+    color: #fff;
+    border-radius: 50%;
+    font-size: 10px;
+    font-weight: bold;
+    margin-left: 8px;
+    vertical-align: super;
+  }
+
+  /* Match Cards */
+  .match-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .match-card {
+    border: 1px solid #d0d0d0;
+    border-radius: 12px;
+    padding: 16px;
+    background: #fff;
+  }
+  .match-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .match-teams {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .team {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .team-player {
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .vs {
+    font-size: 12px;
+    font-weight: bold;
+    color: #999;
+  }
+  .match-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 12px;
+    border-top: 1px solid #eee;
+  }
+  .match-score {
+    font-size: 16px;
+    font-weight: 700;
+  }
+  
+  /* Chips */
+  .chip {
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+  }
+  .chip-pending {
+    border: 1px solid #666;
+    color: #444;
+    background: transparent;
+  }
+  .chip-rated {
+    background: #333;
+    color: #fff;
+    border: 1px solid #333;
+  }
+
+  /* Card Actions */
+  .card-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #eee;
+  }
+
+  /* Buttons */
+  .btn-primary {
+    background: #222;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    min-height: 44px; /* Touch Target constraint */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    cursor: pointer;
+  }
+  .btn-link {
+    background: none;
+    color: #555;
+    border: none;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: underline;
+    min-height: 44px; /* Touch Target constraint */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    cursor: pointer;
+  }
+
+  /* Quick Stats Row */
+  .stats-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .stat-cell {
+    flex: 1;
+    background: #f8f8f8;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 12px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  .stat-val {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .stat-label {
+    font-size: 11px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* Bottom Tab Bar */
+  .tab-bar-mock {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    display: flex;
+    border-top: 1px solid #d0d0d0;
+    background: #fff;
+    padding-bottom: 12px; /* iOS home indicator space */
+  }
+  .tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60px; 
+    gap: 4px;
+    color: #888;
+  }
+  .tab.active {
+    color: #111;
+  }
+  .tab .icon-box {
+    width: 24px;
+    height: 24px;
+    background-color: #d0d0d0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #666;
+  }
+  .tab.active .icon-box {
+    background-color: #333;
+    color: #fff;
+  }
+  .tab-label {
+    font-size: 10px;
+    font-weight: 600;
+  }
+
+  /* Legend Box */
+  .legend-box {
+    width: 390px;
+    margin-top: 24px;
+    background: #fff;
+    border: 1px solid #ccc;
+    padding: 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #444;
+  }
+  .legend-title {
+    font-weight: bold;
+    margin-bottom: 8px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 4px;
+  }
+  .legend-item {
+    margin-bottom: 6px;
+    line-height: 1.4;
+  }
+</style>
+</head>
+<body>
+
+  <div class="phone-frame">
+    
+    <div class="header">
+      <h1>Hi, Arjun</h1>
+      <div class="bell-container">
+        <div class="bell">X</div>
+        <div class="badge">2</div>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <div class="rating-badge">
+        <div class="number">3.4</div>
+        <div class="tier">Established</div>
+        <div class="reliability-container">
+          <span>Reliability: High</span>
+          <div class="reliability-bar">
+            <div class="reliability-fill"></div>
+          </div>
+        </div>
+        <div class="delta-pill">↑ +18 last match</div>
+      </div>
+
+      <div>
+        <div class="section-header">
+          <h2>Waiting on you (2)</h2>
+          <span class="annotation">1</span>
+        </div>
+        <div class="match-stack">
+          <div class="match-card">
+            <div class="match-header">
+              <span>15 Jul 2026</span>
+              <span>OMR Arena</span>
+            </div>
+            <div class="match-teams">
+              <div class="team">
+                <span class="team-player">Vikram</span>
+                <span class="team-player">Ravi</span>
+              </div>
+              <div class="vs">VS</div>
+              <div class="team" style="text-align: right;">
+                <span class="team-player">Arjun</span>
+                <span class="team-player">Karthik</span>
+              </div>
+            </div>
+            <div class="match-footer">
+              <div class="match-score">6-2, 6-3</div>
+              <div class="chip chip-pending">Pending</div>
+            </div>
+            <div class="card-actions">
+              <button class="btn-primary">Confirm Match</button>
+              <button class="btn-link">Dispute Result</button>
+            </div>
+          </div>
+          
+          <div class="match-card">
+            <div class="match-header">
+              <span>12 Jul 2026</span>
+              <span>Adyar Club</span>
+            </div>
+            <div class="match-teams">
+              <div class="team">
+                <span class="team-player">Priya</span>
+                <span class="team-player">Ananya</span>
+              </div>
+              <div class="vs">VS</div>
+              <div class="team" style="text-align: right;">
+                <span class="team-player">Arjun</span>
+                <span class="team-player">Siddharth</span>
+              </div>
+            </div>
+            <div class="match-footer">
+              <div class="match-score">4-6, 7-5, 6-4</div>
+              <div class="chip chip-pending">Pending</div>
+            </div>
+            <div class="card-actions">
+              <button class="btn-primary">Confirm Match</button>
+              <button class="btn-link">Dispute Result</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn-primary">Log a match</button>
+
+      <div class="stats-row">
+        <div class="stat-cell">
+          <div class="stat-val">24</div>
+          <div class="stat-label">Matches<br>Played</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-val">58%</div>
+          <div class="stat-label">Win<br>Rate</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-val">W3</div>
+          <div class="stat-label">Current<br>Streak</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-header">
+          <h2>Recent activity</h2>
+        </div>
+        <div class="match-stack">
+          <div class="match-card">
+            <div class="match-header">
+              <span>10 Jul 2026</span>
+              <span>Velachery Padel</span>
+            </div>
+            <div class="match-teams">
+              <div class="team">
+                <span class="team-player">Arjun</span>
+                <span class="team-player">Karthik</span>
+              </div>
+              <div class="vs">VS</div>
+              <div class="team" style="text-align: right;">
+                <span class="team-player">Rahul</span>
+                <span class="team-player">Vijay</span>
+              </div>
+            </div>
+            <div class="match-footer">
+              <div class="match-score">6-4, 6-4</div>
+              <div class="chip chip-rated">✓ Rated</div>
+            </div>
+          </div>
+
+          <div class="match-card">
+            <div class="match-header">
+              <span>08 Jul 2026</span>
+              <span>OMR Arena</span>
+            </div>
+            <div class="match-teams">
+              <div class="team">
+                <span class="team-player">Neha</span>
+                <span class="team-player">Priya</span>
+              </div>
+              <div class="vs">VS</div>
+              <div class="team" style="text-align: right;">
+                <span class="team-player">Arjun</span>
+                <span class="team-player">Ravi</span>
+              </div>
+            </div>
+            <div class="match-footer">
+              <div class="match-score">7-6, 3-6, 4-6</div>
+              <div class="chip chip-rated">✓ Rated</div>
+            </div>
+          </div>
+          
+          <div class="match-card">
+            <div class="match-header">
+              <span>05 Jul 2026</span>
+              <span>Adyar Club</span>
+            </div>
+            <div class="match-teams">
+              <div class="team">
+                <span class="team-player">Arjun</span>
+                <span class="team-player">Siddharth</span>
+              </div>
+              <div class="vs">VS</div>
+              <div class="team" style="text-align: right;">
+                <span class="team-player">Vikram</span>
+                <span class="team-player">Karthik</span>
+              </div>
+            </div>
+            <div class="match-footer">
+              <div class="match-score">6-1, 6-2</div>
+              <div class="chip chip-rated">✓ Rated</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="tab-bar-mock">
+      <div class="tab active">
+        <div class="icon-box">X</div>
+        <span class="tab-label">Home</span>
+      </div>
+      <div class="tab">
+        <div class="icon-box">X</div>
+        <span class="tab-label">Log Match</span>
+      </div>
+      <div class="tab">
+        <div class="icon-box">X</div>
+        <span class="tab-label">Leaderboard</span>
+      </div>
+      <div class="tab">
+        <div class="icon-box">X</div>
+        <span class="tab-label">Profile</span>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="legend-box">
+    <div class="legend-title">Annotations Legend</div>
+    <div class="legend-item"><strong>1. Waiting on you:</strong> Highest priority action — matches don't affect ratings until both teams confirm. Needs to sit directly under the hero rating card.</div>
+  </div>
+
+</body>
+</html>
