@@ -384,7 +384,7 @@
         <div class="segmented-control">
           <div class="segment active">Men's</div>
           <div class="segment">Women's</div>
-          <div class="segment">Mixed</div>
+          <div class="segment">Open</div>
         </div>
 
         <div class="filter-row">
@@ -557,10 +557,28 @@
       </div>
     </div>
 
+    <!--
+      Empty state — shown on the Women's tab.
+
+      Why Women's, not Open: the day-one state where all three tabs are empty is
+      unreachable. Phase 1 hides the leaderboard entirely, and by Phase 2 the beta
+      twenty have dozens of matches and RD well below the placement threshold.
+
+      The empty state that will actually occur in production is the Women's tab.
+      The Chennai padel community skews male, so it is plausible that no woman has
+      crossed placement for the first weeks or months after launch.
+
+      Copy rules:
+      - Point at the MATCH THRESHOLD, never at the absence of people. An empty
+        Women's tab that reads as "no women play here" is discouraging and
+        potentially self-fulfilling.
+      - Stay TAB-AGNOSTIC. This screen must work unmodified if Men's or Open is
+        ever empty. Do not name or imply who is not playing.
+    -->
     <div class="screen-container">
-      <div class="screen-label">Mixed (Empty State)</div>
+      <div class="screen-label">Women's (Empty State)</div>
       <div class="phone-frame">
-        
+
         <div class="header">
           <h1>Leaderboard</h1>
           <div class="bell">X</div>
@@ -568,8 +586,8 @@
 
         <div class="segmented-control">
           <div class="segment">Men's</div>
-          <div class="segment">Women's</div>
-          <div class="segment active">Mixed</div>
+          <div class="segment active">Women's</div>
+          <div class="segment">Open</div>
         </div>
 
         <div class="filter-row">
@@ -580,8 +598,8 @@
         <div class="content" style="background: #f9f9f9;">
           <div class="empty-state">
             <div class="icon-box">X</div>
-            <h3>No mixed matches yet</h3>
-            <p>Mixed rankings appear once enough mixed doubles matches are logged.</p>
+            <h3>No rankings yet</h3>
+            <p>Rankings appear once players have completed their first few matches.</p>
             <button class="btn-primary">Log a match</button>
           </div>
         </div>

@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const get = vi.fn();
+const verifyIdToken = vi.fn();
 
 vi.mock('../../src/config/firebase.js', () => ({
   getFirestore: () => ({
     collection: () => ({ doc: () => ({ get }) }),
   }),
-  getAuth: vi.fn(),
+  getAuth: () => ({ verifyIdToken }),
 }));
 
 const { createApp } = await import('../../src/app.js');
@@ -17,10 +18,10 @@ function listen(app) {
   });
 }
 
-async function request(path) {
+async function request(path, headers = {}) {
   const server = await listen(createApp());
   try {
-    const res = await fetch(`http://127.0.0.1:${server.address().port}${path}`);
+    const res = await fetch(`http://127.0.0.1:${server.address().port}${path}`, { headers });
     return { status: res.status, body: await res.json() };
   } finally {
     server.close();
@@ -69,11 +70,46 @@ describe('GET /health/db', () => {
   });
 });
 
-describe('unknown routes', () => {
-  it('returns a JSON 404', async () => {
+describe('auth is applied to everything except health', () => {
+  it('leaves /health open — Render probes it without credentials', async () => {
+    const { status } = await request('/health');
+
+    expect(status).toBe(200);
+  });
+
+  it('leaves /health/db open', async () => {
+    get.mockResolvedValue({ exists: false });
+    const { status } = await request('/health/db');
+
+    expect(status).toBe(200);
+    expect(verifyIdToken).not.toHaveBeenCalled();
+  });
+
+  it('401s an unauthenticated call to any other path', async () => {
+    // Not a 404: an anonymous caller must not be able to enumerate routes.
     const { status, body } = await request('/nope');
+
+    expect(status).toBe(401);
+    expect(body.error).toBe('Unauthorized');
+  });
+
+  it('404s an authenticated call to an unknown path', async () => {
+    verifyIdToken.mockResolvedValue({ uid: 'uid-1' });
+    get.mockResolvedValue({ exists: true, id: 'uid-1', data: () => ({ name: 'Arun' }) });
+
+    const { status, body } = await request('/nope', { Authorization: 'Bearer good' });
 
     expect(status).toBe(404);
     expect(body).toEqual({ error: 'Not Found' });
+  });
+
+  it('403s an authenticated caller with no user record', async () => {
+    verifyIdToken.mockResolvedValue({ uid: 'uid-new' });
+    get.mockResolvedValue({ exists: false });
+
+    const { status, body } = await request('/nope', { Authorization: 'Bearer good' });
+
+    expect(status).toBe(403);
+    expect(body.error).toBe('Forbidden');
   });
 });

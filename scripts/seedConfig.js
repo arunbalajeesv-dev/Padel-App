@@ -26,8 +26,15 @@ const CONFIG_V1 = {
   defaultVolatility: 0.06,
 
   // Weak-link team combination: w = 0.5 + lambda * tanh(d / gapScaleD)
+  //
+  // lambdaMixed is deliberately launched EQUAL to lambdaSame. 0.20 is not known
+  // to be wrong, but it is not known to be right either, and it is the only
+  // constant encoding a claim about gender. Launching them equal means mixed and
+  // same-gender pairs get an identical w, team rating, and credit split until
+  // data says otherwise. The Step 9 simulator sweeps 0.12 / 0.20 / 0.30; raise
+  // this from the result, not from intuition. See CLAUDE.md.
   lambdaSame: 0.12,
-  lambdaMixed: 0.20,
+  lambdaMixed: 0.12,
   gapScaleD: 1.15,
 
   // Team uncertainty synergy term, by pairing type and familiarity.
@@ -49,16 +56,90 @@ const CONFIG_V1 = {
   repeatMultipliers: [1.0, 0.7, 0.4, 0.2],
   repeatWindowDays: 7,
 
-  // Anti-abuse caps
-  maxDeltaPerMatch: 150,
-  weeklyGainCap: 200,
+  // The only cap in the system.
+  //
+  // maxDeltaPerMatch is a BUG BACKSTOP, not a shaping constraint. It must sit
+  // above the worst LEGITIMATE delta, or it silently starts shaping real play.
+  //
+  // Placement players are exempt (see CLAUDE.md), so this only ever sees
+  // provisional and established players. Worst legitimate case measured for a
+  // provisional player at RD 149, partnered to maximise 2r, winning 6-0 6-0:
+  //
+  //   spread            lambdaMixed 0.12   lambdaMixed 0.20
+  //   1300-1700              160.5              180.6
+  //   1200-2000              185.7              209.7
+  //   1000-2400              189.0              213.4
+  //
+  // 150 fired on legitimate play at every spread. 200 fires if the Step 9 sweep
+  // concludes lambdaMixed = 0.20. 300 clears both branches with headroom while
+  // still catching a catastrophic delta, which is orders of magnitude out.
+  //
+  // There is deliberately NO weeklyGainCap. It was deleted rather than sized: no
+  // value works. Too low fires on a legitimate upset; too high is redundant
+  // against maxDeltaPerMatch; nothing in between stops collusion, because a ring
+  // paces itself under any cap a real streak survives. See CLAUDE.md > Resolved.
+  maxDeltaPerMatch: 300,
 
-  // RD tiers: > placement = placement (hidden from public leaderboard),
-  // > provisional = provisional, at or below provisional = established.
+  // Tier thresholds. A player must clear BOTH the RD bound and the games floor
+  // to advance — the two are ANDed, never ORed.
+  //
+  //   placement    RD >= 150, or fewer than 8 games   (hidden from leaderboard)
+  //   provisional  RD <  150 and >= 8 games
+  //   established  RD <  100 and >= 10 games
+  //
+  // Bounds are STRICT: a player at exactly RD 150 is still in placement.
+  //
+  // The games floors are not redundant with the RD bounds. They exist so the UI
+  // can say "3 more matches to appear on the leaderboard" instead of "your RD is
+  // 162". See CLAUDE.md > "Tiers and Placement".
   rdThresholds: {
-    placement: 200,
+    placement: 150,
     provisional: 100,
   },
+  // Set from Step 9: the 90th percentile of matches-to-placement-exit for a
+  // skill-CLUSTERED population (our closed beta), as Open Question 1 specified.
+  // The clustered distribution is the one that matters — closer matches are more
+  // informative, so RD falls faster than an open population would suggest.
+  gamesPlayedFloors: {
+    provisional: 8,
+    established: 10,
+  },
+
+  // The 0-7 display scale. ratingDisplay is DERIVED from these on read and is
+  // NEVER stored on the user document — a stored copy becomes a second source of
+  // truth the moment this mapping is retuned, and every historical rating would
+  // then disagree with the number printed beside it.
+  //
+  // Spans 1000-2500: ~1500 rating points across 7 units, ~214 points per unit.
+  // How many digits of the result are honest to show is Open Question 1 — this
+  // produces the value, not the rendering.
+  displayScale: {
+    ratingAtZero: 1000,
+    ratingAtMax: 2500,
+    maxUnits: 7,
+  },
+
+  // --- Operational thresholds (Step 15) ---------------------------------------
+
+  // Weekly-gain admin alert. This SURFACES unusual gain for a human; it does not
+  // cap or punish, so firing on legitimate play is harmless. 200 is deliberately
+  // the value that was too low to CAP (it fired on legitimate 6-0 6-0 upsets —
+  // see the deleted weeklyGainCap): a week that would have hit the old cap is
+  // exactly a week worth a human glance. The endpoint returns distinctOpponents
+  // alongside the gain, which is the real streak-vs-ring signal.
+  weeklyGainAlertThreshold: 200,
+  weeklyGainAlertWindowDays: 7,
+
+  // trustScore is a shrunk mean of 1-5 sportsmanship scores, normalised to [0,1],
+  // pulled toward a neutral 0.5 prior by this pseudocount. k=5 ≈ five reviews to
+  // move halfway from neutral to the raw mean: stable early, responsive later.
+  // See src/lib/trustScore.js. Never touches the skill rating.
+  trustScorePriorWeight: 5,
+
+  // Inactivity decay. A player unseen for longer than this many days has their RD
+  // grown by one Glicko inactivity step per job run, capped at defaultRd — so
+  // absence returns them toward newcomer uncertainty, never past it.
+  inactivityThresholdDays: 30,
 };
 
 async function main() {

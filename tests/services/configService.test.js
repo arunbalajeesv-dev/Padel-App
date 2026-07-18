@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+import { VALID_CONFIG } from '../fixtures/config.js';
+
 const get = vi.fn();
 
 vi.mock('../../src/config/firebase.js', () => ({
@@ -11,29 +13,9 @@ const { getConfig, getConfigVersion, invalidateConfigCache } = await import(
   '../../src/services/configService.js'
 );
 
-const VALID = {
-  version: 1,
-  tau: 0.5,
-  defaultRating: 1500,
-  defaultRd: 350,
-  defaultVolatility: 0.06,
-  lambdaSame: 0.12,
-  lambdaMixed: 0.2,
-  gapScaleD: 1.15,
-  synergy: {
-    same: { repeat: 0.1, firstTime: 0.17 },
-    mixed: { repeat: 0.17, firstTime: 0.23 },
-  },
-  formatSingleSet: 0.65,
-  formatThreeSet: 1.0,
-  marginBase: 0.8,
-  marginCoefficient: 0.4,
-  repeatMultipliers: [1.0, 0.7, 0.4, 0.2],
-  repeatWindowDays: 7,
-  maxDeltaPerMatch: 150,
-  weeklyGainCap: 200,
-  rdThresholds: { placement: 200, provisional: 100 },
-};
+// The shared fixture, so adding a required key breaks in ONE place rather than
+// in every test file that kept its own copy.
+const VALID = structuredClone(VALID_CONFIG);
 
 function snapshot(data) {
   return { exists: true, data: () => structuredClone(data) };
@@ -114,10 +96,10 @@ describe('getConfig', () => {
 
 describe('config validation', () => {
   it('rejects a missing top-level constant', async () => {
-    const { weeklyGainCap, ...rest } = VALID;
+    const { maxDeltaPerMatch, ...rest } = VALID;
     get.mockResolvedValue(snapshot(rest));
 
-    await expect(getConfig()).rejects.toThrow(/weeklyGainCap must be a finite number/);
+    await expect(getConfig()).rejects.toThrow(/maxDeltaPerMatch must be a finite number/);
   });
 
   it('rejects a missing nested constant', async () => {
@@ -128,6 +110,30 @@ describe('config validation', () => {
     await expect(getConfig()).rejects.toThrow(
       /rdThresholds\.placement must be a finite number/,
     );
+  });
+
+  it.each([
+    'gamesPlayedFloors.provisional',
+    'gamesPlayedFloors.established',
+  ])('rejects a config missing %s', async (path) => {
+    // An absent games floor must not silently fall through: the leaderboard UI
+    // counts matches down against it, so a missing floor makes that copy lie.
+    const [parent, key] = path.split('.');
+    const broken = structuredClone(VALID);
+    delete broken[parent][key];
+    get.mockResolvedValue(snapshot(broken));
+
+    await expect(getConfig()).rejects.toThrow(
+      new RegExp(path.replace('.', '\\.') + ' must be a finite number'),
+    );
+  });
+
+  it('rejects a config with no gamesPlayedFloors at all', async () => {
+    const { gamesPlayedFloors, ...rest } = VALID;
+    get.mockResolvedValue(snapshot(rest));
+
+    await expect(getConfig()).rejects.toThrow(/gamesPlayedFloors\.provisional/);
+    await expect(getConfig()).rejects.toThrow(/gamesPlayedFloors\.established/);
   });
 
   it('rejects a non-numeric constant', async () => {

@@ -30,9 +30,22 @@ const REQUIRED_NUMBERS = [
   'marginCoefficient',
   'repeatWindowDays',
   'maxDeltaPerMatch',
-  'weeklyGainCap',
   'rdThresholds.placement',
   'rdThresholds.provisional',
+  'gamesPlayedFloors.provisional',
+  'gamesPlayedFloors.established',
+  'displayScale.ratingAtZero',
+  'displayScale.ratingAtMax',
+  'displayScale.maxUnits',
+
+  // Operational (Step 15). Not rating-math constants — they shape no delta, so
+  // adding them does not invalidate ratingHistory replay. They still live here
+  // and still throw when missing, because a deployment missing an alert or decay
+  // threshold is misconfigured and should fail loudly, not run on a guess.
+  'weeklyGainAlertThreshold',
+  'weeklyGainAlertWindowDays',
+  'trustScorePriorWeight',
+  'inactivityThresholdDays',
 ];
 
 function valueAt(obj, path) {

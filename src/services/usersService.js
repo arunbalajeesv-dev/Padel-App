@@ -1,0 +1,262 @@
+/**
+ * Users data layer.
+ *
+ * Users are keyed by Firebase uid: the document id IS the uid. That is what
+ * enforces one account per phone number — Firebase phone auth issues one uid per
+ * number, so a second signup with the same phone lands on the same document.
+ */
+import { getFirestore } from '../config/firebase.js';
+import { toDisplayRating } from '../lib/displayRating.js';
+import { TIER } from '../lib/placement.js';
+
+export const USERS_COLLECTION = 'users';
+
+/** Sorts above any ordinary character — the upper bound of a prefix range. */
+const HIGH_SENTINEL = '';
+
+/**
+ * Fields a client may set at signup. Anything else in the body is rejected.
+ *
+ * This is an ALLOWLIST, deliberately. A denylist ("reject rating, status,
+ * trustScore, isAdmin") leaks every field added after it is written — the next
+ * privileged field someone adds would be client-settable until a human
+ * remembered to update the list.
+ */
+export const CREATABLE_FIELDS = Object.freeze(['name', 'photoUrl', 'gender', 'area']);
+
+/** Fields a player may change on their own profile. */
+export const PATCHABLE_FIELDS = Object.freeze(['name', 'photoUrl', 'area']);
+
+/**
+ * Fields an ADMIN may change on any profile.
+ *
+ * `gender` is here rather than in PATCHABLE_FIELDS — mutable, but not
+ * self-serve.
+ *
+ * **Why it is safe to change at all:** `pairingType` is frozen on every match
+ * document as an audit record and is never recomputed. Changing gender therefore
+ * cannot rewrite the basis of matches already played. What it does do is:
+ * past matches unaffected, future matches use the new value, and the player
+ * moves to the correct leaderboard — which is the desired outcome, not
+ * corruption. The audit record is precisely what makes this safe.
+ *
+ * **Why it must be mutable:** a player who mis-taps at signup would otherwise be
+ * on the wrong leaderboard permanently, with no recourse — one account per phone
+ * forbids making a new one. That is an unresolvable support ticket. The same
+ * applies to a trans player, where "your gender is immutable" is not something
+ * this app should say to a member of a 100-person community.
+ *
+ * **Why admin-gated rather than self-serve:** nothing malicious is invited by
+ * self-serve — gender confers no rating advantage, since every leaderboard reads
+ * the same latent scale. But admin-gating gives a log and a human check, which is
+ * proportionate for a field that changes which board someone appears on.
+ */
+export const ADMIN_PATCHABLE_FIELDS = Object.freeze([...PATCHABLE_FIELDS, 'gender']);
+
+const GENDERS = Object.freeze(['M', 'F']);
+
+/**
+ * Strip a user document to what its OWNER may see.
+ *
+ * Allowlist, not denylist. `rating.value`, `rating.rd`, `rating.sigma` and
+ * `trustScore` never appear in any client-facing response — only ratingDisplay
+ * and status. See CLAUDE.md: all rating math is server-side and never exposed.
+ */
+export function toSelfView(user, config) {
+  return {
+    id: user.id,
+    phone: user.phone,
+    name: user.name,
+    photoUrl: user.photoUrl ?? null,
+    gender: user.gender,
+    area: user.area ?? null,
+    ratingDisplay: toDisplayRating(user.rating.value, config),
+    status: user.status,
+    gamesPlayed: user.gamesPlayed,
+    isAnchor: user.isAnchor === true,
+    createdAt: user.createdAt,
+    lastActiveAt: user.lastActiveAt,
+  };
+}
+
+/**
+ * Strip a user document to what ANOTHER player may see.
+ *
+ * Search results expose name, area and ratingDisplay only — never phone, never
+ * internal rating state.
+ */
+export function toPublicView(user, config) {
+  return {
+    id: user.id,
+    name: user.name,
+    area: user.area ?? null,
+    ratingDisplay: toDisplayRating(user.rating.value, config),
+  };
+}
+
+/** Validation shared by create and patch. Returns an array of messages. */
+function validateProfile(input, { partial }) {
+  const errors = [];
+  const has = (k) => Object.hasOwn(input, k);
+
+  if (!partial || has('name')) {
+    if (typeof input.name !== 'string' || input.name.trim().length < 2) {
+      errors.push('name must be a string of at least 2 characters.');
+    } else if (input.name.length > 60) {
+      errors.push('name must be 60 characters or fewer.');
+    }
+  }
+
+  if (!partial || has('gender')) {
+    if (!GENDERS.includes(input.gender)) {
+      errors.push(`gender must be one of: ${GENDERS.join(', ')}.`);
+    }
+  }
+
+  for (const field of ['photoUrl', 'area']) {
+    if (has(field) && input[field] !== null && typeof input[field] !== 'string') {
+      errors.push(`${field} must be a string or null.`);
+    }
+  }
+
+  return errors;
+}
+
+/** Fields present in the body but outside the allowlist. */
+function rejectedFields(body, allowed) {
+  return Object.keys(body ?? {}).filter((k) => !allowed.includes(k));
+}
+
+export function validateCreate(body) {
+  return {
+    rejected: rejectedFields(body, CREATABLE_FIELDS),
+    errors: validateProfile(body ?? {}, { partial: false }),
+  };
+}
+
+/**
+ * @param {object} body
+ * @param {{ asAdmin?: boolean }} [options] Admins may additionally set gender.
+ */
+export function validatePatch(body, { asAdmin = false } = {}) {
+  const allowed = asAdmin ? ADMIN_PATCHABLE_FIELDS : PATCHABLE_FIELDS;
+  const rejected = rejectedFields(body, allowed);
+  const errors = validateProfile(body ?? {}, { partial: true });
+  if (Object.keys(body ?? {}).length === 0) errors.push('No fields to update.');
+  return { rejected, errors };
+}
+
+export async function findById(uid) {
+  const snap = await getFirestore().collection(USERS_COLLECTION).doc(uid).get();
+  return snap.exists ? { id: snap.id, ...snap.data() } : null;
+}
+
+/**
+ * Create a first-time profile.
+ *
+ * Every privileged field is set HERE, by the server. Nothing the client sent can
+ * reach rating, status, trustScore, isAdmin, gamesPlayed or isAnchor — `input`
+ * is filtered to CREATABLE_FIELDS before it is spread, so an unknown key cannot
+ * ride along even if validation were bypassed.
+ *
+ * @param {string} uid From the verified token, never the body.
+ * @param {string|null} phone From the verified token, never the body.
+ */
+export async function createUser({ uid, phone, input, config }) {
+  const now = new Date().toISOString();
+
+  const profile = {};
+  for (const field of CREATABLE_FIELDS) {
+    if (Object.hasOwn(input, field)) profile[field] = input[field];
+  }
+
+  const doc = {
+    ...profile,
+    // Identity comes from the token. A client-supplied phone would break the
+    // one-account-per-number rule.
+    phone: phone ?? null,
+    photoUrl: profile.photoUrl ?? null,
+    area: profile.area ?? null,
+
+    // Server-owned. Every new player starts identically — there is no
+    // self-assessment and no onboarding skill question.
+    rating: {
+      value: config.defaultRating,
+      rd: config.defaultRd,
+      sigma: config.defaultVolatility,
+    },
+    status: TIER.PLACEMENT,
+    gamesPlayed: 0,
+    isAnchor: false,
+    isAdmin: false,
+    trustScore: 0,
+    createdAt: now,
+    lastActiveAt: now,
+  };
+
+  // create() throws ALREADY_EXISTS rather than overwriting — a double signup
+  // must not reset an existing player's rating to 1500.
+  await getFirestore().collection(USERS_COLLECTION).doc(uid).create(doc);
+  return { id: uid, ...doc };
+}
+
+/**
+ * Apply a patch, filtered to an explicit allowlist.
+ *
+ * @param {string} uid
+ * @param {object} input
+ * @param {{ asAdmin?: boolean }} [options]
+ */
+export async function updateUser(uid, input, { asAdmin = false } = {}) {
+  const allowed = asAdmin ? ADMIN_PATCHABLE_FIELDS : PATCHABLE_FIELDS;
+
+  const patch = {};
+  for (const field of allowed) {
+    if (Object.hasOwn(input, field)) patch[field] = input[field];
+  }
+  patch.lastActiveAt = new Date().toISOString();
+
+  await getFirestore().collection(USERS_COLLECTION).doc(uid).update(patch);
+  return findById(uid);
+}
+
+/**
+ * Set or unset a player's anchor flag. Admin-only, and deliberately NOT routed
+ * through updateUser's allowlist: `isAnchor` is server-owned and has exactly one
+ * writer, this function. An anchor is a trusted reference player; the flag is
+ * operational, never client-settable.
+ *
+ * @param {string} uid
+ * @param {boolean} isAnchor
+ * @returns {Promise<object|null>} the updated user, or null if no such user.
+ */
+export async function setAnchor(uid, isAnchor) {
+  const ref = getFirestore().collection(USERS_COLLECTION).doc(uid);
+  const snap = await ref.get();
+  if (!snap.exists) return null;
+
+  await ref.update({ isAnchor: isAnchor === true, lastActiveAt: new Date().toISOString() });
+  return findById(uid);
+}
+
+/**
+ * Search players by name prefix.
+ *
+ * Firestore has no substring search, so this is a case-sensitive prefix range
+ * query: [q, q + HIGH_SENTINEL]. `endAt(q)` alone would match only an exact
+ * name. Good enough for ~100 players; revisit if the club grows.
+ */
+export async function searchUsers(query, { limit = 20 } = {}) {
+  const q = String(query ?? '').trim();
+  if (q.length === 0) return [];
+
+  const snap = await getFirestore()
+    .collection(USERS_COLLECTION)
+    .orderBy('name')
+    .startAt(q)
+    .endAt(q + HIGH_SENTINEL)
+    .limit(limit)
+    .get();
+
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
