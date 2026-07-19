@@ -1089,12 +1089,29 @@ whole deploy. **Step 17 adds the `rules` key at the same time it adds the file.*
 
 **Deploy under an owner/editor account, not the app's service account.** The
 runtime credentials in `.env` have Firestore data access only and are rejected by
-both the CLI and the index API — verified during Step 14. This is the correct
-scoping; deployment is a human-operator action, not something the running app
-does. The five composite indexes in `firestore.indexes.json` were validated
-against live Firestore (their orderings match what Firestore demands) but have
-**not been deployed** — the deploying operator's first `firebase deploy` creates
-them.
+both the CLI and the index API — verified during Step 14 and again when the
+client was wired. (The same credentials *can* use the Firebase **Management** API,
+which is how the web app was registered; the permissions are not uniform, so test
+rather than assume.) This is the correct scoping; deployment is a human-operator
+action, not something the running app does.
+
+> ### ⚠ The leaderboard is DEAD until the indexes are deployed
+>
+> The five composite indexes in `firestore.indexes.json` have their orderings
+> validated against live Firestore, but they have **not been created**. Until
+> they are, `GET /leaderboard` returns **500** against the real database —
+> confirmed live: `9 FAILED_PRECONDITION: The query requires an index`.
+>
+> This does not show up in the test suite, which mocks Firestore. It is a
+> deployment step, not a code defect. Clear it with:
+>
+> ```
+> firebase login
+> firebase deploy --only firestore:indexes --project chennai-padel
+> ```
+>
+> The `matchupKey` index matters the same way: match **confirmation** will fail
+> the moment a second match between the same four players is confirmed.
 
 **The API deploys separately, to Render.** The Firebase CLI deploys database
 configuration only; it is not the app's deployment path.
