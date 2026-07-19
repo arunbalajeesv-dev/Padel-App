@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Padel App - Notifications</title>
+<style>
+  /* Base Reset & Typography */
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  body {
+    background-color: #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    padding: 40px;
+    color: #333;
+  }
+
+  /* Layout */
+  .flow-wrapper {
+    display: flex;
+    gap: 40px;
+    overflow-x: auto;
+    padding-bottom: 24px;
+  }
+  .screen-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+  .screen-label {
+    font-size: 16px;
+    font-weight: 700;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  /* Phone Frame Constraints */
+  .phone-frame {
+    width: 390px;
+    height: 844px;
+    background-color: #ffffff;
+    border: 6px solid #222;
+    border-radius: 40px;
+    position: relative;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .phone-frame::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e0e0e0;
+    background: #fff;
+    z-index: 10;
+    min-height: 60px;
+    gap: 16px;
+    position: sticky;
+    top: 0;
+  }
+  .back-btn {
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px; /* Touch target constraint */
+    min-height: 44px;
+  }
+  .header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    flex-grow: 1;
+  }
+
+  /* Content Area */
+  .content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+  }
+
+  /* Notification Items */
+  .notif-item {
+    display: flex;
+    padding: 16px 20px;
+    border-bottom: 1px solid #eee;
+    min-height: 76px; /* Exceeds 44px touch target */
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+    position: relative;
+  }
+  
+  .notif-item.unread {
+    background-color: #f8f8f8;
+  }
+  
+  /* Unread Accent Bar */
+  .notif-item.unread::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background-color: #333;
+  }
+
+  .notif-icon {
+    width: 44px;
+    height: 44px;
+    background-color: #d0d0d0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: #666;
+    flex-shrink: 0;
+    margin-right: 16px;
+  }
+
+  .notif-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  .notif-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .notif-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #222;
+  }
+
+  .notif-time {
+    font-size: 11px;
+    color: #888;
+    white-space: nowrap;
+    margin-top: 2px;
+  }
+
+  .notif-body {
+    font-size: 13px;
+    color: #666;
+    line-height: 1.4;
+  }
+
+  /* Empty State */
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 32px;
+    background: #f9f9f9;
+  }
+  
+  .empty-icon {
+    width: 64px;
+    height: 64px;
+    background-color: #d0d0d0;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: bold;
+    color: #666;
+    margin-bottom: 24px;
+  }
+  
+  .empty-state h2 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: #333;
+  }
+  
+  .empty-state p {
+    font-size: 14px;
+    color: #666;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+
+  <div class="flow-wrapper">
+    
+    <div class="screen-container">
+      <div class="screen-label">Notifications (Populated)</div>
+      <div class="phone-frame">
+        
+        <div class="header">
+          <div class="back-btn">←</div>
+          <h1>Notifications</h1>
+        </div>
+
+        <div class="content">
+          
+          <div class="notif-item unread">
+            <div class="notif-icon">X</div>
+            <div class="notif-text">
+              <div class="notif-header">
+                <div class="notif-title">Confirm your match</div>
+                <div class="notif-time">2h ago</div>
+              </div>
+              <div class="notif-body">Pending confirmation from your opponents.</div>
+            </div>
+          </div>
+
+          <div class="notif-item">
+            <div class="notif-icon">X</div>
+            <div class="notif-text">
+              <div class="notif-header">
+                <div class="notif-title">Your rating went up</div>
+                <div class="notif-time">1d ago</div>
+              </div>
+              <div class="notif-body">+18 after beating Karthik & Meena</div>
+            </div>
+          </div>
+
+          <div class="notif-item">
+            <div class="notif-icon">X</div>
+            <div class="notif-text">
+              <div class="notif-header">
+                <div class="notif-title">Dispute resolved</div>
+                <div class="notif-time">3d ago</div>
+              </div>
+              <div class="notif-body">The admin team has reviewed and resolved your recent match dispute.</div>
+            </div>
+          </div>
+
+          <div class="notif-item">
+            <div class="notif-icon">X</div>
+            <div class="notif-text">
+              <div class="notif-header">
+                <div class="notif-title">You're now Established!</div>
+                <div class="notif-time">5d ago</div>
+              </div>
+              <div class="notif-body">Congratulations on completing enough matches to lock in your tier.</div>
+            </div>
+          </div>
+
+          <div class="notif-item">
+            <div class="notif-icon">X</div>
+            <div class="notif-text">
+              <div class="notif-header">
+                <div class="notif-title">Leaderboard opens next week</div>
+                <div class="notif-time">1w ago</div>
+              </div>
+              <div class="notif-body">Admin announcement: Get ready for the first official Chennai season!</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <div class="screen-container">
+      <div class="screen-label">Notifications (Empty)</div>
+      <div class="phone-frame">
+        
+        <div class="header">
+          <div class="back-btn">←</div>
+          <h1>Notifications</h1>
+        </div>
+
+        <div class="content">
+          <div class="

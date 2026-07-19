@@ -155,9 +155,15 @@ export async function findById(uid) {
  * Create a first-time profile.
  *
  * Every privileged field is set HERE, by the server. Nothing the client sent can
- * reach rating, status, trustScore, isAdmin, gamesPlayed or isAnchor — `input`
- * is filtered to CREATABLE_FIELDS before it is spread, so an unknown key cannot
- * ride along even if validation were bypassed.
+ * reach rating, status, isAdmin, gamesPlayed or isAnchor — `input` is filtered to
+ * CREATABLE_FIELDS before it is spread, so an unknown key cannot ride along even
+ * if validation were bypassed.
+ *
+ * There is deliberately NO `trustScore` field. trustScore is derived on read from
+ * `trustLogs` and is never stored — a stored copy would be a stale-derived-field
+ * trap: 0 is not a value the formula can even return, so a future read of
+ * `user.trustScore` would get 0 and mistake it for a real low-trust signal. See
+ * CLAUDE.md > Peer Feedback.
  *
  * @param {string} uid From the verified token, never the body.
  * @param {string|null} phone From the verified token, never the body.
@@ -189,7 +195,7 @@ export async function createUser({ uid, phone, input, config }) {
     gamesPlayed: 0,
     isAnchor: false,
     isAdmin: false,
-    trustScore: 0,
+    // No trustScore: it is derived on read from trustLogs, never stored.
     createdAt: now,
     lastActiveAt: now,
   };

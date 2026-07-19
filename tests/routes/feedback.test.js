@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
 
 import { VALID_CONFIG as CONFIG } from '../fixtures/config.js';
 import { makeFirestore } from '../fixtures/fakeFirestore.js';
@@ -21,21 +21,30 @@ function listen(app) {
   });
 }
 
+// ONE server per file, reused across tests. Spinning a server up and down per
+// request churns ephemeral ports fast enough that a recycled port can serve the
+// next request from a different listener — an observed ~1-in-25 flake.
+let _server;
+async function sharedServer() {
+  if (!_server) _server = await listen(createApp());
+  return _server;
+}
+afterAll(() => {
+  _server?.closeAllConnections?.();
+  _server?.close();
+});
+
 async function post(path, { token = 'good', body } = {}) {
-  const server = await listen(createApp());
-  try {
-    const res = await fetch(`http://127.0.0.1:${server.address().port}${path}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify(body ?? {}),
-    });
-    return { status: res.status, body: await res.json().catch(() => null) };
-  } finally {
-    server.close();
-  }
+  const server = await sharedServer();
+  const res = await fetch(`http://127.0.0.1:${server.address().port}${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(body ?? {}),
+  });
+  return { status: res.status, body: await res.json().catch(() => null) };
 }
 
 const PLAYERS = ['me', 'a2', 'b1', 'b2'];
@@ -46,7 +55,6 @@ const user = (id) => ({
   rating: { value: 1500, rd: 300, sigma: 0.06 },
   status: 'provisional',
   gamesPlayed: 10,
-  trustScore: 0,
   isAdmin: false,
 });
 
@@ -116,9 +124,9 @@ describe('POST /feedback — happy path', () => {
 
     PLAYERS.forEach((id, i) => {
       expect(db.state.get(`users/${id}`).rating).toEqual(before[i]);
-      // Not even trustScore is written: the aggregate is deferred, only the raw
-      // log is stored.
-      expect(db.state.get(`users/${id}`).trustScore).toBe(0);
+      // No aggregate is written to the user document either. trustScore is
+      // derived on read from trustLogs and must never be stored.
+      expect(db.state.get(`users/${id}`).trustScore).toBeUndefined();
     });
 
     // No ratingHistory entry was created by feedback.

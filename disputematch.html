@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Padel App - Dispute Match</title>
+<style>
+  /* Base Reset & Typography */
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  body {
+    background-color: #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+    color: #333;
+  }
+
+  /* Phone Frame Constraints */
+  .phone-frame {
+    width: 390px;
+    height: 844px;
+    background-color: #ffffff;
+    border: 6px solid #222;
+    border-radius: 40px;
+    position: relative;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e0e0e0;
+    background: #fff;
+    z-index: 10;
+    min-height: 60px;
+    gap: 16px;
+  }
+  .back-btn {
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    flex-grow: 1;
+  }
+
+  /* Scrollable Content Area */
+  .content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  
+  /* Hide scrollbar */
+  .content::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Compact Match Card */
+  .match-card {
+    border: 1px solid #d0d0d0;
+    border-radius: 8px;
+    padding: 12px;
+    background: #f8f8f8;
+  }
+  .match-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #666;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .match-teams {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .team {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .team-player {
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .vs {
+    font-size: 11px;
+    font-weight: bold;
+    color: #999;
+  }
+  .match-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 8px;
+    border-top: 1px solid #eee;
+  }
+  .match-score {
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .chip-pending {
+    padding: 4px 8px;
+    border: 1px solid #666;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #444;
+  }
+
+  /* Form Section Header */
+  .section-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  /* Radio List */
+  .radio-list {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #d0d0d0;
+    border-radius: 8px;
+    background: #fff;
+    overflow: hidden;
+  }
+  .radio-item {
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    min-height: 48px; /* Touch target */
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+  }
+  .radio-item:last-child {
+    border-bottom: none;
+  }
+  .radio-circle {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #aaa;
+    border-radius: 50%;
+    margin-right: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .radio-item.active .radio-circle {
+    border-color: #333;
+  }
+  .radio-item.active .radio-circle::after {
+    content: '';
+    width: 10px;
+    height: 10px;
+    background: #333;
+    border-radius: 50%;
+  }
+  .radio-label {
+    font-size: 15px;
+    font-weight: 500;
+    color: #333;
+  }
+
+  /* Text Area */
+  textarea {
+    width: 100%;
+    min-height: 100px;
+    padding: 12px 16px;
+    border: 1px solid #aaa;
+    border-radius: 8px;
+    font-size: 15px;
+    background: #fff;
+    resize: none;
+  }
+
+  /* Upload Box */
+  .upload-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 80px; /* Touch target */
+    border: 2px dashed #aaa;
+    border-radius: 8px;
+    background: #fafafa;
+    cursor: pointer;
+    gap: 8px;
+  }
+  .upload-icon {
+    width: 24px;
+    height: 24px;
+    background: #d0d0d0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+    color: #666;
+    border-radius: 4px;
+  }
+  .upload-text {
+    font-size: 14px;
+    font-weight: 500;
+    color: #555;
+  }
+
+  /* Footer Area */
+  .footer {
+    padding: 16px 20px 32px 20px;
+    border-top: 1px solid #e0e0e0;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .btn-primary {
+    background: #222;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    min-height: 44px; /* Touch target */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    cursor: pointer;
+  }
+  .caption {
+    font-size: 12px;
+    color: #777;
+    text-align: center;
+    line-height: 1.4;
+  }
+</style>
+</head>
+<body>
+
+  <div class="phone-frame">
+    
+    <div class="header">
+      <div class="back-btn">←</div>
+      <h1>Dispute match</h1>
+    </div>
+
+    <div class="content">
+
+      <div class="match-card">
+        <div class="match-header">
+          <span>Today</span>
+          <span>OMR Padel Arena</span>
+        </div>
+        <div class="match-teams">
+          <div class="team">
+            <span class="team-player">Arjun</span>
+            <span class="team-player">Priya</span>
+          </div>
+          <div class="vs">VS</div>
+          <div class="team" style="text-align: right;">
+            <span class="team-player">Karthik</span>
+            <span class="team-player">Meena</span>
+          </div>
+        </div>
+        <div class="match-footer">
+          <div class="match-score">6-3, 6-4</div>
+          <div class="chip-pending">Pending</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title">What's wrong?</div>
+        <div class="radio-list">
+          <div class="radio-item">
+            <div class="radio-circle"></div>
+            <div class="radio-label">I didn't play this match</div>
+          </div>
+          <div class="radio-item active">
+            <div class="radio-circle"></div>
+            <div class="radio-label">Wrong score</div>
+          </div>
+          <div class="radio-item">
+            <div class="radio-circle"></div>
+            <div class="radio-label">Wrong players</div>
+          </div>
+          <div class="radio-item">
+            <div class="radio-circle"></div>
+            <div class="radio-label">Wrong court</div>
+          </div>
+          <div class="radio-item">
+            <div class="radio-circle"></div>
+            <div class="radio-label">Other</div>
+          </div>
+        </div>
+      </div>
+
+      <textarea placeholder="Tell us more"></textarea>
+
+      <div class="upload-box">
+        <div class="upload-icon">X</div>
+        <div class="upload-text">Add a photo (optional)</div>
+      </div>
+
+    </div>
+
+    <div class="footer">
+      <button class="btn-primary">Submit dispute</button>
+      <div class="caption">This match won't affect anyone's rating until an admin reviews it.</div>
+    </div>
+
+  </div>
+
+</body>
+</html>

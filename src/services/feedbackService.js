@@ -38,15 +38,12 @@ export const TRUST_LOGS_COLLECTION = 'trustLogs';
 export const CREATABLE_FIELDS = Object.freeze(['matchId', 'ratings']);
 
 /**
- * The sportsmanship scale, as COLLECTED. There is deliberately no aggregate.
+ * The sportsmanship scale, as COLLECTED. This module writes only the raw scores.
  *
- * `trustScore` on the user document is NOT written by this module and currently
- * has no defined scale. That is intentional: a trust score is a derived
- * aggregate of trustLogs, trustLogs is append-only and complete, so any formula
- * can be computed from it later — retroactively, over the full history, once
- * something actually consumes it. Choosing a formula and a "this score means
- * trouble" threshold now, with no data and no consumer, is how `weeklyGainCap`
- * got a number nobody could defend. See CLAUDE.md > Peer Feedback.
+ * There is NO `trustScore` field on the user document. The trust score is a
+ * derived aggregate of trustLogs (append-only, complete), computed on read in
+ * `trustService.js` — never stored. This module writes the raw evidence and
+ * nothing else. See CLAUDE.md > Peer Feedback > trustScore.
  *
  * 1-5 rather than a 3-point scale for one reason: 5 collapses to 3 later, 3
  * never expands to 5. Store the finest resolution honestly collected.

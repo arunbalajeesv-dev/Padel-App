@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
 
 import { VALID_CONFIG as CONFIG } from '../fixtures/config.js';
 import { makeFirestore } from '../fixtures/fakeFirestore.js';
@@ -21,22 +21,31 @@ function listen(app) {
   });
 }
 
+// ONE server per file, reused across tests. Spinning a server up and down per
+// request churns ephemeral ports fast enough that a recycled port can serve the
+// next request from a different listener — an observed ~1-in-25 flake.
+let _server;
+async function sharedServer() {
+  if (!_server) _server = await listen(createApp());
+  return _server;
+}
+afterAll(() => {
+  _server?.closeAllConnections?.();
+  _server?.close();
+});
+
 async function req(method, path, { token = 'admin', body } = {}) {
-  const server = await listen(createApp());
-  try {
-    const res = await fetch(`http://127.0.0.1:${server.address().port}${path}`, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-    });
-    const text = await res.text();
-    return { status: res.status, body: text ? JSON.parse(text) : null };
-  } finally {
-    server.close();
-  }
+  const server = await sharedServer();
+  const res = await fetch(`http://127.0.0.1:${server.address().port}${path}`, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+  });
+  const text = await res.text();
+  return { status: res.status, body: text ? JSON.parse(text) : null };
 }
 
 const get = (p, o) => req('GET', p, o);

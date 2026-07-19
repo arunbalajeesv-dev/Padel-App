@@ -34,7 +34,6 @@ const USER = {
   gamesPlayed: 24,
   isAnchor: false,
   isAdmin: true,
-  trustScore: 87,
   createdAt: '2026-01-01T00:00:00.000Z',
   lastActiveAt: '2026-07-01T00:00:00.000Z',
 };
@@ -61,8 +60,11 @@ describe('toSelfView', () => {
     assertNoLeak(view);
   });
 
-  it('never leaks trustScore', () => {
-    expect(toSelfView(USER, CONFIG).trustScore).toBeUndefined();
+  it('never leaks trustScore, even if one somehow appears on the document', () => {
+    // trustScore is derived on read and never stored, so a real document has no
+    // such field. Injecting one proves the view strips it regardless — it is
+    // admin-internal and must never reach a player.
+    expect(toSelfView({ ...USER, trustScore: 87 }, CONFIG).trustScore).toBeUndefined();
   });
 
   it('never leaks isAdmin', () => {
@@ -94,7 +96,7 @@ describe('toPublicView', () => {
   });
 
   it('never leaks status, gamesPlayed or trustScore', () => {
-    const view = toPublicView(USER, CONFIG);
+    const view = toPublicView({ ...USER, trustScore: 87 }, CONFIG);
 
     expect(view.status).toBeUndefined();
     expect(view.gamesPlayed).toBeUndefined();

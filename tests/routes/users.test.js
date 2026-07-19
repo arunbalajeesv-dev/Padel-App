@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
 
 const verifyIdToken = vi.fn();
 const userGet = vi.fn();
@@ -34,21 +34,30 @@ function listen(app) {
   });
 }
 
+// ONE server per file, reused across tests. Spinning a server up and down per
+// request churns ephemeral ports fast enough that a recycled port can serve the
+// next request from a different listener — an observed ~1-in-25 flake.
+let _server;
+async function sharedServer() {
+  if (!_server) _server = await listen(createApp());
+  return _server;
+}
+afterAll(() => {
+  _server?.closeAllConnections?.();
+  _server?.close();
+});
+
 async function call(method, path, { token, body } = {}) {
-  const server = await listen(createApp());
-  try {
-    const res = await fetch(`http://127.0.0.1:${server.address().port}${path}`, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      ...(body ? { body: JSON.stringify(body) } : {}),
-    });
-    return { status: res.status, body: await res.json().catch(() => null) };
-  } finally {
-    server.close();
-  }
+  const server = await sharedServer();
+  const res = await fetch(`http://127.0.0.1:${server.address().port}${path}`, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  return { status: res.status, body: await res.json().catch(() => null) };
 }
 
 const EXISTING = {
@@ -62,7 +71,6 @@ const EXISTING = {
   gamesPlayed: 24,
   isAnchor: false,
   isAdmin: false,
-  trustScore: 87,
   createdAt: '2026-01-01T00:00:00.000Z',
   lastActiveAt: '2026-07-01T00:00:00.000Z',
 };
@@ -122,6 +130,20 @@ describe('POST /users — the signup bootstrap', () => {
     expect(written.rating).toEqual({ value: 1500, rd: 350, sigma: 0.06 });
     expect(written.status).toBe('placement');
     expect(written.gamesPlayed).toBe(0);
+  });
+
+  it('never writes a trustScore field', async () => {
+    // trustScore is derived on read from trustLogs. A stored copy would be a
+    // stale-derived-field trap: 0 is not a value the formula can return, so a
+    // future read would get 0 and mistake it for a real low-trust signal.
+    userGet.mockResolvedValue({ exists: false });
+
+    await call('POST', '/users', {
+      token: 'good',
+      body: { name: 'Newbie', gender: 'F' },
+    });
+
+    expect(userCreate.mock.calls[0][0]).not.toHaveProperty('trustScore');
   });
 
   it('takes phone from the token, never the body', async () => {

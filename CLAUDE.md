@@ -602,12 +602,31 @@ trustScore = (Σ normalised + k · 0.5) / (n + k)      k = trustScorePriorWeight
 - **`k = 5`**: roughly five reviews to move halfway from neutral to the raw mean.
   Reachable in a few weeks in a 100-person club; stable early, responsive later.
 
-**Derived on read, never stored.** The source of truth is `trustLogs`
-(append-only, complete), so any future re-tuning of `k` or the formula recomputes
-retroactively over the full history for free — the same discipline as
-`ratingDisplay`. The `trustScore: 0` field on the user document is **vestigial**
-and is NOT the score; do not read it. It is not a computed zero, and 0 is not
-even a value this formula can return.
+### DERIVED ON READ. NEVER STORED. There is no `trustScore` field.
+
+**The user document has no `trustScore` field, and nothing may add one.** The
+source of truth is `trustLogs` (append-only, complete), so any future re-tuning of
+`k` or the formula recomputes retroactively over the full history for free — the
+same discipline as `ratingDisplay`.
+
+A stored copy would be a **stale-derived-field trap**, and specifically a nasty
+one: **0 is not a value this formula can return** (the minimum is `0.5·k/(n+k)`,
+approached only under sustained 1-star feedback). So a stored `trustScore: 0`
+default reads as *"this player is maximally untrusted"* when it actually means
+*"nobody has computed anything"*. A future session reading `user.trustScore`,
+getting 0, and treating it as a real low-trust signal is not a hypothetical — it
+is the obvious misreading.
+
+> **A field was removed for exactly this.** `trustScore: 0` was written at signup
+> and read by nothing. It is now gone from `createUser`, from the document shape,
+> and from every fixture. This is the same class as the fields already removed
+> for `ratingDisplay`, `confirmationState` and `matchPool`: **a derived value with
+> a stored copy is a second source of truth that drifts.** The rule generalises —
+> if a value is computed from other data, do not persist it "for convenience."
+>
+> `POST /users` has a test pinning that signup writes no `trustScore`. The view
+> allowlists strip it even if one somehow appears, and there are tests for that
+> too.
 
 **Two hard constraints, from CLAUDE.md and enforced in code:**
 
@@ -669,11 +688,41 @@ dispute. It takes `action` (`dismiss` | `void`) and a `note`.
 ## Admin Surface
 
 All admin routes live under **`/admin`** and are behind `requireAdmin`, in
-`src/routes/admin.js`. The router is **mounted at `/admin`** (not unprefixed) so
-its blanket `requireAdmin` guards only the admin subtree — mounting it unprefixed
-would run `requireAdmin` on every request and turn an unknown path's 404 into a
-403. The first admin is still made by hand in the Firebase console; there is no
-API path to `isAdmin`. See *Resolved* > "isAdmin bootstrap".
+`src/routes/admin.js`. The first admin is still made by hand in the Firebase
+console; there is no API path to `isAdmin`. See *Resolved* > "isAdmin bootstrap".
+
+### Guard mounting — a router-level guard MUST be path-scoped
+
+**A guard runs before routing resolves whether a path exists.** So a router-level
+`.use(guard)` on an *unprefixed* router runs for **every** request and converts an
+unknown path's 404 into the guard's own rejection. `adminRouter` is therefore
+mounted at **`/admin`**, not unprefixed — the blanket `requireAdmin` then guards
+only the admin subtree.
+
+> **This was a real bug, caught by the health test.** With `adminRouter` mounted
+> unprefixed, an authenticated non-admin got **403 on every unknown path**,
+> including non-admin ones. That contradicts the Step 10 decision below and leaks
+> nothing useful while making the API lie about what exists.
+
+**The rule:** router-level guards must be path-scoped (`app.use('/admin', r)`).
+Per-route guards (`router.post('/courts', requireAdmin, …)`) are always safe,
+because they only run when the route matches. `adminRouter` is currently the
+**only** router-level guard in the app; every other guard is per-route.
+
+### The unknown-path matrix, and why it is not uniform
+
+| Caller | Path | Status | Why |
+|---|---|---|---|
+| anonymous | any non-health path | **401** | Step 10: an anonymous caller must not be able to enumerate routes |
+| member | unknown, outside `/admin` | **404** | truthful — the member is authenticated and the path really does not exist |
+| member | anything under `/admin` | **403** | uniform whether or not the route exists, so admin routes are not enumerable |
+| admin | unknown, anywhere | **404** | truthful |
+
+**The asymmetry is deliberate.** `requireAuth` is app-level (so anonymous callers
+get 401 everywhere, hiding the route table); `requireAdmin` is scoped to `/admin`
+(so members get a uniform 403 there and honest 404s elsewhere). Both guards hide
+existence from callers who should not know it, and tell the truth to callers who
+should. `tests/routes/health.test.js` pins every cell of this table.
 
 | Route | Purpose |
 |---|---|
@@ -822,6 +871,26 @@ query reads one player's subcollection ordered by `createdAt` — with an option
 automatically. Add a composite index only when a query filters or orders on more
 than that one field.
 
+### The admin surface (Step 15) needs NO composite indexes — verified live
+
+Every admin and job query was run against live Firestore with seeded data and
+**all served without an index demand**. That is a design property worth keeping,
+not luck: each one is either a full-collection read or a **single**-field
+filter, both of which the automatic indexes cover.
+
+| Query | Shape | Why no composite |
+|---|---|---|
+| `adminStats` | three full-collection reads, counted in memory | no filters at all |
+| `weeklyGainAlerts` | `users` full read; per-user `ratingHistory` `createdAt >=`; `matches` `players array-contains` | each is one field |
+| `listQueue` (disputes) | full read, `status` filtered **in memory** | deliberately not `status in […]` + `orderBy`, which *would* need a composite |
+| `trustLeaderboard` / `trustFor` | full read / `subjectUid ==` | one field |
+| `listCodes` | `orderBy('createdAt','desc')` | single-field order |
+| decay job | `lastActiveAt <` | single-field range |
+
+**Keep it that way.** If a future change adds an equality filter beside an
+`orderBy`, or a range beside anything else, it needs a composite index — and the
+mock suite will not tell you. Re-run the live check.
+
 ### How these were verified, and who can deploy them
 
 **The test suite mocks Firestore and cannot see index ordering at all** — a wrong
@@ -898,6 +967,18 @@ on the match. A resend of the same key returns the existing match with a 200.**
   so they stay unit-testable. Rating math takes values in, returns values out.
 - **Vitest** for tests.
 - **Every rating math function must have tests.**
+- **Route tests share ONE HTTP server per file.** Create it lazily via
+  `sharedServer()` and close it in `afterAll` — never one server per request.
+
+> **Why: an observed ~1-in-25 flake.** The route helpers used to `listen(0)` and
+> `close()` around every single request. That churns ephemeral ports fast enough
+> that a recycled port can serve a request from a different listener — the
+> symptom was a test receiving Express's default **HTML** 404 instead of our JSON
+> one, so `res.json()` threw `Unexpected token '<'`. It looked like a routing bug
+> and was not. One server per file fixed it: 60 consecutive clean runs after,
+> versus ~1-in-25 before. **A flaky suite is worse than a missing test** — it
+> trains people to re-run instead of read, and this suite is the only thing
+> standing between the rating engine and a silent corruption.
 
 ---
 
