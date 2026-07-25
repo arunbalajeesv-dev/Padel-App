@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import TabLayout from './layout/TabLayout.jsx';
 import Placeholder from './pages/Placeholder.jsx';
 import Home from './pages/Home.jsx';
+import LogMatch from './pages/log/LogMatch.jsx';
 import ProfileSetup from './pages/ProfileSetup.jsx';
 import { AuthProvider } from './auth/AuthProvider.jsx';
 import { useAuth } from './auth/authContext.js';
@@ -44,15 +45,7 @@ export default function App() {
             }
           >
             <Route index element={<Home />} />
-            <Route
-              path="log"
-              element={
-                <Placeholder
-                  title="Log Match"
-                  note="Pick players and a court, enter games per set."
-                />
-              }
-            />
+            <Route path="log" element={<LogMatch />} />
             <Route
               path="leaderboard"
               element={
