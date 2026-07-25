@@ -8,6 +8,8 @@ import { createHash } from 'node:crypto';
 
 import { getFirestore } from '../config/firebase.js';
 import { validateScore } from '../lib/scoreValidator.js';
+import { USERS_COLLECTION } from './usersService.js';
+import { COURTS_COLLECTION } from './courtsService.js';
 
 export const MATCHES_COLLECTION = 'matches';
 
@@ -165,6 +167,90 @@ export function toMatchView(match) {
     ],
     createdAt: match.createdAt,
   };
+}
+
+/**
+ * Resolve the player uids and court ids across a set of matches into names, so
+ * the client can render "Vikram" instead of a uid. Match documents store ids
+ * only; names live on the user and court documents.
+ *
+ * One batched read for users and one for courts, regardless of how many matches
+ * — the Home screen shows a handful, and this keeps it to two round trips.
+ *
+ * @returns {Promise<{players: Record<string,string>, courts: Record<string,string>}>}
+ */
+async function resolveNames(matches) {
+  const db = getFirestore();
+
+  const playerIds = [...new Set(matches.flatMap((m) => m.players ?? []))];
+  const courtIds = [...new Set(matches.map((m) => m.courtId).filter(Boolean))];
+
+  const players = {};
+  const courts = {};
+
+  if (playerIds.length > 0) {
+    const snaps = await db.getAll(...playerIds.map((id) => db.collection(USERS_COLLECTION).doc(id)));
+    for (const s of snaps) if (s.exists) players[s.id] = s.data().name ?? null;
+  }
+  if (courtIds.length > 0) {
+    const snaps = await db.getAll(...courtIds.map((id) => db.collection(COURTS_COLLECTION).doc(id)));
+    for (const s of snaps) if (s.exists) courts[s.id] = s.data().name ?? null;
+  }
+
+  return { players, courts };
+}
+
+/**
+ * Matches awaiting THIS player's confirmation: pending, they played in them, and
+ * they have not confirmed yet. These are the highest-value action on Home — an
+ * unconfirmed match never affects any rating.
+ *
+ * `players array-contains` + `status ==` is served by the automatic single-field
+ * indexes (no composite needed). The "not yet confirmed by me" filter is applied
+ * in memory — Firestore cannot express "array does not contain".
+ *
+ * @returns {Promise<{matches: object[], players: object, courts: object}>}
+ */
+export async function listAwaitingConfirmation(uid) {
+  const snap = await getFirestore()
+    .collection(MATCHES_COLLECTION)
+    .where('players', 'array-contains', uid)
+    .where('status', '==', STATUS.PENDING)
+    .get();
+
+  const matches = snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((m) => !(m.confirmedBy ?? []).includes(uid))
+    .sort((a, b) => String(b.playedAt).localeCompare(String(a.playedAt)));
+
+  const names = await resolveNames(matches);
+  return { matches: matches.map(toMatchView), ...names };
+}
+
+/**
+ * This player's recent RATED matches, newest first. Confirmed only — a pending
+ * match belongs in the "waiting on you" section, not recent activity.
+ *
+ * Sorted in memory to avoid an array-contains + orderBy composite index; a
+ * player's confirmed-match count is small enough that fetching and slicing is
+ * cheaper than maintaining another index.
+ *
+ * @returns {Promise<{matches: object[], players: object, courts: object}>}
+ */
+export async function listRecentForPlayer(uid, { limit = 10 } = {}) {
+  const snap = await getFirestore()
+    .collection(MATCHES_COLLECTION)
+    .where('players', 'array-contains', uid)
+    .where('status', '==', STATUS.CONFIRMED)
+    .get();
+
+  const matches = snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => String(b.playedAt).localeCompare(String(a.playedAt)))
+    .slice(0, limit);
+
+  const names = await resolveNames(matches);
+  return { matches: matches.map(toMatchView), ...names };
 }
 
 export async function findById(id) {

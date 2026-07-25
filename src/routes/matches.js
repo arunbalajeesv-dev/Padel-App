@@ -10,6 +10,29 @@ export const matchesRouter = Router();
 
 const badRequest = (res, errors) => res.status(400).json({ error: 'Bad Request', errors });
 
+/**
+ * Matches awaiting the caller's confirmation. Home's highest-priority section.
+ * Registered BEFORE POST /matches/:id/* — a literal path, no collision.
+ */
+matchesRouter.get('/matches/pending', async (req, res, next) => {
+  try {
+    return res.json(await matches.listAwaitingConfirmation(req.uid));
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/** The caller's recent rated matches, newest first. */
+matchesRouter.get('/matches/recent', async (req, res, next) => {
+  try {
+    const raw = Number(req.query.limit);
+    const limit = Number.isInteger(raw) && raw > 0 && raw <= 50 ? raw : 10;
+    return res.json(await matches.listRecentForPlayer(req.uid, { limit }));
+  } catch (err) {
+    return next(err);
+  }
+});
+
 matchesRouter.post('/matches', async (req, res, next) => {
   try {
     const body = req.body ?? {};

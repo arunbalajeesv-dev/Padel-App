@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 import TabLayout from './layout/TabLayout.jsx';
 import Placeholder from './pages/Placeholder.jsx';
+import Home from './pages/Home.jsx';
 import ProfileSetup from './pages/ProfileSetup.jsx';
 import { AuthProvider } from './auth/AuthProvider.jsx';
 import { useAuth } from './auth/authContext.js';
@@ -42,15 +43,7 @@ export default function App() {
               </RequireAuth>
             }
           >
-            <Route
-              index
-              element={
-                <Placeholder
-                  title="Home"
-                  note="Your rating, pending confirmations, and recent matches."
-                />
-              }
-            />
+            <Route index element={<Home />} />
             <Route
               path="log"
               element={

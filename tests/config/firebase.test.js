@@ -29,15 +29,26 @@ beforeEach(() => {
 });
 
 describe('firebase config', () => {
-  it('names every missing env var in the error', async () => {
+  it('names the missing fields when the three-var source is incomplete', async () => {
+    // privateKey present but the other two empty: the source is chosen (not all
+    // three are absent), then reported as incomplete, naming what is missing.
     setEnv();
     vi.stubEnv('FIREBASE_PROJECT_ID', '');
     vi.stubEnv('FIREBASE_CLIENT_EMAIL', '');
 
     const { getFirestore } = await loadFresh();
-    expect(() => getFirestore()).toThrow(
-      /Missing env vars: FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL/,
-    );
+    expect(() => getFirestore()).toThrow(/incomplete. Missing: project_id, client_email/);
+  });
+
+  it('lists all three sources when nothing at all is configured', async () => {
+    vi.stubEnv('FIREBASE_PROJECT_ID', '');
+    vi.stubEnv('FIREBASE_CLIENT_EMAIL', '');
+    vi.stubEnv('FIREBASE_PRIVATE_KEY', '');
+    vi.stubEnv('FIREBASE_SERVICE_ACCOUNT', '');
+    vi.stubEnv('GOOGLE_APPLICATION_CREDENTIALS', '');
+
+    const { getFirestore } = await loadFresh();
+    expect(() => getFirestore()).toThrow(/GOOGLE_APPLICATION_CREDENTIALS/);
   });
 
   it('rejects a private_key_id pasted in place of the PEM', async () => {

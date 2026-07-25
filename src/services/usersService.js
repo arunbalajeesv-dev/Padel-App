@@ -7,7 +7,7 @@
  */
 import { getFirestore } from '../config/firebase.js';
 import { toDisplayRating } from '../lib/displayRating.js';
-import { TIER } from '../lib/placement.js';
+import { TIER, placementCountdown } from '../lib/placement.js';
 
 export const USERS_COLLECTION = 'users';
 
@@ -74,6 +74,14 @@ export function toSelfView(user, config) {
     status: user.status,
     gamesPlayed: user.gamesPlayed,
     isAnchor: user.isAnchor === true,
+    // The leaderboard countdown, computed server-side so the client never has to
+    // reason about RD. `status` is 'visible' | 'counting' | 'settling', and
+    // `matchesRemaining` is a number ONLY in the counting state — never an
+    // estimate. RD itself is never exposed. See placementCountdown.
+    placement: placementCountdown(
+      { rd: user.rating.rd, gamesPlayed: user.gamesPlayed },
+      config,
+    ),
     createdAt: user.createdAt,
     lastActiveAt: user.lastActiveAt,
   };

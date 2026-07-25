@@ -20,6 +20,9 @@ const CONFIG = {
   defaultRd: 350,
   defaultVolatility: 0.06,
   displayScale: { ratingAtZero: 1000, ratingAtMax: 2500, maxUnits: 7 },
+  // toSelfView now computes the placement countdown, which needs these.
+  rdThresholds: { placement: 150, provisional: 100 },
+  gamesPlayedFloors: { provisional: 8, established: 10 },
 };
 
 const USER = {
@@ -69,6 +72,48 @@ describe('toSelfView', () => {
 
   it('never leaks isAdmin', () => {
     expect(toSelfView(USER, CONFIG).isAdmin).toBeUndefined();
+  });
+
+  describe('placement countdown — computed server-side, RD never exposed', () => {
+    it('is visible for an established player already on the board', () => {
+      // RD 62, 24 games clears both bounds.
+      expect(toSelfView(USER, CONFIG).placement).toEqual({
+        status: 'visible',
+        matchesRemaining: null,
+      });
+    });
+
+    it('gives an exact number ONLY when RD is clear but games are short', () => {
+      // RD 120 < 150 (clear), 3 games < the floor of 8 → counting, exact number.
+      const counting = {
+        ...USER,
+        rating: { value: 1500, rd: 120, sigma: 0.06 },
+        gamesPlayed: 3,
+        status: 'placement',
+      };
+      const { placement } = toSelfView(counting, CONFIG);
+      expect(placement.status).toBe('counting');
+      expect(placement.matchesRemaining).toBe(CONFIG.gamesPlayedFloors.provisional - 3);
+    });
+
+    it('shows no number while RD is still settling, even if games are also short', () => {
+      // RD 300 >= 150 → settling. No estimate, ever.
+      const settling = {
+        ...USER,
+        rating: { value: 1500, rd: 300, sigma: 0.06 },
+        gamesPlayed: 1,
+        status: 'placement',
+      };
+      expect(toSelfView(settling, CONFIG).placement).toEqual({
+        status: 'settling',
+        matchesRemaining: null,
+      });
+    });
+
+    it('still never exposes RD itself', () => {
+      const raw = JSON.stringify(toSelfView(USER, CONFIG));
+      expect(raw).not.toMatch(/"rd"|"value"|"sigma"/);
+    });
   });
 
   it('gives the owner their own phone', () => {

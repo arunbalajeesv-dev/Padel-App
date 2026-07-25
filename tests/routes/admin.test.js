@@ -94,11 +94,14 @@ describe('admin surface — access control', () => {
 
 describe('GET /admin/stats', () => {
   it('returns totals and an RD histogram', async () => {
+    // Dates are relative to now: "this week" is a moving window, so a hardcoded
+    // playedAt silently falls out of it as real time passes.
+    const daysAgo = (n) => new Date(Date.now() - n * 86_400_000).toISOString();
     db = makeFirestore({
       ...baseDocs(),
       'users/c': userDoc({ name: 'C', rating: { value: 1600, rd: 220, sigma: 0.06 } }),
-      'matches/m1': { status: 'confirmed', playedAt: '2026-07-17T10:00:00.000Z' },
-      'matches/m2': { status: 'pending', playedAt: '2026-07-01T10:00:00.000Z' },
+      'matches/m1': { status: 'confirmed', playedAt: daysAgo(2) }, // this week
+      'matches/m2': { status: 'pending', playedAt: daysAgo(20) },
       'disputes/d1': { status: 'open', matchId: 'm1' },
       'disputes/d2': { status: 'resolved', matchId: 'm2' },
     });

@@ -148,6 +148,9 @@ export function makeFirestore(seed = {}, { onWrite } = {}) {
 
     collection: (name) => query(name),
 
+    /** Batched multi-document read, mirroring firestore.getAll(...refs). */
+    getAll: async (...refs) => refs.map((ref) => snapshotOf(ref.path)),
+
     async runTransaction(fn) {
       const writes = [];
 

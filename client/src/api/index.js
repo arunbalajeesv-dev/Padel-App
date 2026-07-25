@@ -41,6 +41,28 @@ export function patchMe(patch) {
   return request('/users/me', { method: 'PATCH', body: patch });
 }
 
+/**
+ * Matches awaiting the caller's confirmation — Home's highest-priority section.
+ *
+ * @returns {Promise<{matches: object[], players: Record<string,string>,
+ *   courts: Record<string,string>}>} match views plus name lookups, since match
+ *   documents store uids and the cards show names.
+ */
+export function getPendingMatches() {
+  return request('/matches/pending');
+}
+
+/**
+ * The caller's recent rated (confirmed) matches, newest first.
+ *
+ * @param {{limit?: number}} [options]
+ * @returns {Promise<{matches: object[], players: Record<string,string>,
+ *   courts: Record<string,string>}>}
+ */
+export function getRecentMatches(options = {}) {
+  return request('/matches/recent', { query: { limit: options.limit } });
+}
+
 /** Player search by name prefix. Returns public fields only. */
 export function searchUsers(q) {
   return request('/users/search', { query: { q } });
