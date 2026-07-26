@@ -63,6 +63,16 @@ export function getRecentMatches(options = {}) {
   return request('/matches/recent', { query: { limit: options.limit } });
 }
 
+/**
+ * One match in full, for the Confirm screen. Participants only (403 otherwise).
+ *
+ * @returns {Promise<{match: object, players: Record<string,string>,
+ *   courts: Record<string,string>}>} the match carries `viewerNeedsToConfirm`.
+ */
+export function getMatch(matchId) {
+  return request(`/matches/${encodeURIComponent(matchId)}`);
+}
+
 /** Player search by name prefix. Returns public fields only. */
 export function searchUsers(q) {
   return request('/users/search', { query: { q } });

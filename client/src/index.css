@@ -1052,3 +1052,198 @@ body {
   border-radius: 8px;
   padding: 14px 16px;
 }
+
+/* --- Pending "waiting" card variant --------------------------------------- */
+
+/* Still visibly unfinished, but calmer than the action card — no button, and a
+   plain waiting line. It must never read as a settled/rated result. */
+.match-card-action {
+  border-color: #f0c674;
+  border-left: 4px solid #d99a00;
+  background: #fffdf5;
+}
+
+.match-card-waiting {
+  border-color: #d8d8d8;
+  border-left: 4px solid #b8b8b8;
+  background: #fafafa;
+}
+
+.waiting-status {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #666;
+  font-style: italic;
+}
+
+/* --- Confirm Match screen (ConfirmMatch.html) ----------------------------- */
+
+.confirm-page {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 80px);
+  margin: -24px -20px 0;
+}
+
+.confirm-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.confirm-title {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.confirm-body {
+  flex: 1;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.info-line {
+  font-size: 14px;
+  color: #555;
+}
+
+.confirm-card {
+  border: 1px solid #d0d0d0;
+  border-radius: 12px;
+  padding: 20px;
+  background: #fff;
+}
+
+.confirm-card-top {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 16px;
+}
+
+.confirm-teams {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.confirm-team {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.confirm-team-right {
+  text-align: right;
+  align-items: flex-end;
+}
+
+.confirm-player {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.confirm-team-won .confirm-player {
+  color: #111;
+}
+
+.won-badge {
+  margin-top: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #2e7d32;
+  background: #e7f4e8;
+  border-radius: 4px;
+  padding: 2px 6px;
+  align-self: flex-start;
+}
+
+.confirm-team-right .won-badge {
+  align-self: flex-end;
+}
+
+.confirm-vs {
+  font-size: 13px;
+  font-weight: 800;
+  color: #999;
+  padding: 0 12px;
+}
+
+/* Large, unmissable score. */
+.confirm-score {
+  font-size: 28px;
+  font-weight: 800;
+  text-align: center;
+  padding-top: 16px;
+  border-top: 1px solid #eee;
+  letter-spacing: 1px;
+}
+
+.status-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.status-name {
+  flex-grow: 1;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.status-mark {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.status-confirmed {
+  background: #e7f4e8;
+  color: #2e7d32;
+}
+
+.status-pending {
+  border: 1px solid #ccc;
+  color: #aaa;
+}
+
+.confirm-actions {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.caption {
+  font-size: 12px;
+  color: #777;
+  text-align: center;
+}
+
+.confirm-skeleton {
+  height: 200px;
+}

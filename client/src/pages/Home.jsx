@@ -114,22 +114,43 @@ function PendingSection({ lists, coldStart, onConfirm, onDispute }) {
   if (matches.length === 0) return null; // collapse quietly — no empty box
 
   const names = { players: lists.pending.players, courts: lists.pending.courts };
+
+  // Split by the server's per-viewer flag: the ones this player must act on come
+  // first and loud; the ones they've already confirmed sit below as "waiting".
+  const action = matches.filter((m) => m.viewerNeedsToConfirm);
+  const waiting = matches.filter((m) => !m.viewerNeedsToConfirm);
+
   return (
-    <section className="home-section">
-      <h2 className="section-title section-title-urgent">Waiting on you ({matches.length})</h2>
-      <div className="match-stack">
-        {matches.map((m) => (
-          <MatchCard
-            key={m.id}
-            match={m}
-            names={names}
-            mode="pending"
-            onConfirm={onConfirm}
-            onDispute={onDispute}
-          />
-        ))}
-      </div>
-    </section>
+    <>
+      {action.length > 0 && (
+        <section className="home-section">
+          <h2 className="section-title section-title-urgent">Waiting on you ({action.length})</h2>
+          <div className="match-stack">
+            {action.map((m) => (
+              <MatchCard
+                key={m.id}
+                match={m}
+                names={names}
+                mode="action"
+                onConfirm={onConfirm}
+                onDispute={onDispute}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {waiting.length > 0 && (
+        <section className="home-section">
+          <h2 className="section-title">Pending — waiting on the other team</h2>
+          <div className="match-stack">
+            {waiting.map((m) => (
+              <MatchCard key={m.id} match={m} names={names} mode="waiting" />
+            ))}
+          </div>
+        </section>
+      )}
+    </>
   );
 }
 

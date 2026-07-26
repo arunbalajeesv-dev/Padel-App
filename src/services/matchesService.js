@@ -200,18 +200,37 @@ async function resolveNames(matches) {
   return { players, courts };
 }
 
+const httpError = (status, error, reason) =>
+  Object.assign(new Error(reason), { status, error, reason });
+
 /**
- * Matches awaiting THIS player's confirmation: pending, they played in them, and
- * they have not confirmed yet. These are the highest-value action on Home — an
- * unconfirmed match never affects any rating.
+ * A match view tagged with the state that applies to ONE viewing player:
+ * `viewerNeedsToConfirm` is true when this viewer is a participant who has not
+ * confirmed yet. The card uses it to decide between the action-needed state (a
+ * Confirm button) and the waiting state (no button, "waiting on the other team").
+ */
+function viewForPlayer(match, uid) {
+  return {
+    ...toMatchView(match),
+    viewerNeedsToConfirm: !(match.confirmedBy ?? []).includes(uid),
+  };
+}
+
+/**
+ * ALL pending matches this player is part of — not only the ones awaiting their
+ * own confirmation. A pending match belongs on the Home of all four players:
+ * the reporter (auto-confirmed at creation) sees it as pending-on-the-other-team,
+ * and anyone who still owes a confirmation sees it as action-needed. Each match
+ * carries `viewerNeedsToConfirm` so the client can tell those apart WITHOUT
+ * re-deriving it — and so a Confirm button is never shown to someone who already
+ * confirmed.
  *
  * `players array-contains` + `status ==` is served by the automatic single-field
- * indexes (no composite needed). The "not yet confirmed by me" filter is applied
- * in memory — Firestore cannot express "array does not contain".
+ * indexes (no composite needed).
  *
  * @returns {Promise<{matches: object[], players: object, courts: object}>}
  */
-export async function listAwaitingConfirmation(uid) {
+export async function listPendingForPlayer(uid) {
   const snap = await getFirestore()
     .collection(MATCHES_COLLECTION)
     .where('players', 'array-contains', uid)
@@ -220,11 +239,31 @@ export async function listAwaitingConfirmation(uid) {
 
   const matches = snap.docs
     .map((d) => ({ id: d.id, ...d.data() }))
-    .filter((m) => !(m.confirmedBy ?? []).includes(uid))
     .sort((a, b) => String(b.playedAt).localeCompare(String(a.playedAt)));
 
   const names = await resolveNames(matches);
-  return { matches: matches.map(toMatchView), ...names };
+  return { matches: matches.map((m) => viewForPlayer(m, uid)), ...names };
+}
+
+/**
+ * A single match in full, for the Confirm screen. Only a participant may load
+ * it — a match record is not public. Tagged with the viewer's state and joined
+ * to player and court names.
+ *
+ * @throws {Error & {status}} 404 if unknown, 403 if the caller did not play.
+ * @returns {Promise<{match: object, players: object, courts: object}>}
+ */
+export async function getMatchForPlayer(uid, matchId) {
+  const match = await findById(matchId);
+  if (!match) throw httpError(404, 'Not Found', 'no such match');
+
+  const players = match.players ?? playersOf(match);
+  if (!players.includes(uid)) {
+    throw httpError(403, 'Forbidden', 'You can only view a match you played in.');
+  }
+
+  const names = await resolveNames([match]);
+  return { match: viewForPlayer(match, uid), ...names };
 }
 
 /**

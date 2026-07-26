@@ -11,12 +11,16 @@ export const matchesRouter = Router();
 const badRequest = (res, errors) => res.status(400).json({ error: 'Bad Request', errors });
 
 /**
- * Matches awaiting the caller's confirmation. Home's highest-priority section.
- * Registered BEFORE POST /matches/:id/* — a literal path, no collision.
+ * Every pending match the caller is part of — Home's highest-priority section.
+ * Each match is tagged `viewerNeedsToConfirm` so Home can show the action-needed
+ * state (a Confirm button) or the waiting state (no button) per viewer.
+ *
+ * Registered BEFORE `/matches/:id` and POST `/matches/:id/*` — a literal path
+ * always wins over the parameter, so `pending` is never read as an id.
  */
 matchesRouter.get('/matches/pending', async (req, res, next) => {
   try {
-    return res.json(await matches.listAwaitingConfirmation(req.uid));
+    return res.json(await matches.listPendingForPlayer(req.uid));
   } catch (err) {
     return next(err);
   }
@@ -29,6 +33,22 @@ matchesRouter.get('/matches/recent', async (req, res, next) => {
     const limit = Number.isInteger(raw) && raw > 0 && raw <= 50 ? raw : 10;
     return res.json(await matches.listRecentForPlayer(req.uid, { limit }));
   } catch (err) {
+    return next(err);
+  }
+});
+
+/**
+ * A single match in full, for the Confirm screen. Participants only — 403 for a
+ * non-participant, 404 for an unknown id. Registered AFTER the literal GET routes
+ * above so `/matches/pending` and `/matches/recent` are not captured as ids.
+ */
+matchesRouter.get('/matches/:id', async (req, res, next) => {
+  try {
+    return res.json(await matches.getMatchForPlayer(req.uid, req.params.id));
+  } catch (err) {
+    if (err?.status) {
+      return res.status(err.status).json({ error: err.error, reason: err.reason });
+    }
     return next(err);
   }
 });

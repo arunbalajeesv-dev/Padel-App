@@ -87,8 +87,8 @@ beforeEach(() => {
 });
 
 describe('GET /matches/pending', () => {
-  it('returns matches awaiting THIS player, with names resolved', async () => {
-    // me reported nothing here: b1 reported, me has not confirmed → awaiting me.
+  it('tags a match the viewer still owes as action-needed', async () => {
+    // b1 reported, me has not confirmed → me needs to act.
     db = makeFirestore(seed({ m1: { reportedBy: 'b1', confirmedBy: ['b1'] } }));
 
     const { status, body } = await get('/matches/pending');
@@ -97,15 +97,23 @@ describe('GET /matches/pending', () => {
     expect(body.matches).toHaveLength(1);
     expect(body.matches[0].id).toBe('m1');
     expect(body.matches[0].status).toBe('pending');
+    expect(body.matches[0].viewerNeedsToConfirm).toBe(true);
     // Names + court resolved server-side, so the client renders words not uids.
     expect(body.players.me).toBe('Arjun');
     expect(body.players.b1).toBe('Vikram');
     expect(body.courts['court-1']).toBe('OMR Arena');
   });
 
-  it('excludes matches the caller has already confirmed', async () => {
-    db = makeFirestore(seed({ m1: { confirmedBy: ['b1', 'me'] } }));
-    expect((await get('/matches/pending')).body.matches).toEqual([]);
+  it('STILL shows a match the viewer already confirmed, tagged waiting (no action)', async () => {
+    // The reporter's own logged match: they confirmed at creation, but it is
+    // still pending on the other team. It must appear on their Home — just
+    // without a Confirm button.
+    db = makeFirestore(seed({ m1: { reportedBy: 'me', confirmedBy: ['me'] } }));
+
+    const { body } = await get('/matches/pending');
+
+    expect(body.matches).toHaveLength(1);
+    expect(body.matches[0].viewerNeedsToConfirm).toBe(false);
   });
 
   it('excludes confirmed (already rated) matches', async () => {
@@ -120,7 +128,7 @@ describe('GET /matches/pending', () => {
     expect((await get('/matches/pending')).body.matches).toEqual([]);
   });
 
-  it('is empty (not an error) when there is nothing to confirm', async () => {
+  it('is empty (not an error) when there is nothing pending', async () => {
     const { status, body } = await get('/matches/pending');
     expect(status).toBe(200);
     expect(body.matches).toEqual([]);
@@ -128,6 +136,48 @@ describe('GET /matches/pending', () => {
 
   it('401s without a token', async () => {
     expect((await get('/matches/pending', { token: null })).status).toBe(401);
+  });
+});
+
+describe('GET /matches/:id', () => {
+  it('returns the full match to a participant, tagged with their state', async () => {
+    db = makeFirestore(seed({ m1: { reportedBy: 'b1', confirmedBy: ['b1'] } }));
+
+    const { status, body } = await get('/matches/m1');
+
+    expect(status).toBe(200);
+    expect(body.match.id).toBe('m1');
+    expect(body.match.viewerNeedsToConfirm).toBe(true);
+    expect(body.players.b1).toBe('Vikram');
+    expect(body.courts['court-1']).toBe('OMR Arena');
+  });
+
+  it('reports the viewer state for someone who already confirmed', async () => {
+    db = makeFirestore(seed({ m1: { reportedBy: 'me', confirmedBy: ['me'] } }));
+    expect((await get('/matches/m1')).body.match.viewerNeedsToConfirm).toBe(false);
+  });
+
+  it('403s a non-participant — a match record is not public', async () => {
+    db = makeFirestore(
+      seed({ m1: { teamA: ['x1', 'x2'], teamB: ['y1', 'y2'], players: ['x1', 'x2', 'y1', 'y2'] } }),
+    );
+    expect((await get('/matches/m1')).status).toBe(403);
+  });
+
+  it('404s an unknown match', async () => {
+    expect((await get('/matches/nope')).status).toBe(404);
+  });
+
+  it('does not capture the literal /pending path as an id', async () => {
+    // /matches/pending must route to the list, not GET /matches/:id with id="pending".
+    db = makeFirestore(seed({ m1: {} }));
+    const { status, body } = await get('/matches/pending');
+    expect(status).toBe(200);
+    expect(Array.isArray(body.matches)).toBe(true);
+  });
+
+  it('401s without a token', async () => {
+    expect((await get('/matches/m1', { token: null })).status).toBe(401);
   });
 });
 
