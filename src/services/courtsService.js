@@ -53,32 +53,35 @@ export async function findById(id) {
 /**
  * List courts, optionally filtered by area and/or name prefix.
  *
- * Firestore cannot range-filter on `name` while equality-filtering on `area`
- * without a composite index, so the area filter is applied in the query and the
- * search prefix narrows it. With ~a dozen courts this is not worth an index.
+ * Every path here uses a SINGLE-field query so no composite index is required —
+ * the directory is ~a dozen courts, so sorting and prefix-filtering in memory is
+ * cheaper than maintaining an index.
+ *
+ * The subtlety: `where('area','==') .orderBy('name')` in one query is NOT single
+ * field — it needs an (area, name) composite index and 500s without one. So when
+ * an area is given, we filter by area equality alone (auto-indexed) and sort by
+ * name in memory, rather than ordering in the query.
  */
 export async function listCourts({ area, search, limit = 100 } = {}) {
-  let q = getFirestore().collection(COURTS_COLLECTION);
-
-  if (area) q = q.where('area', '==', area);
-
+  const col = getFirestore().collection(COURTS_COLLECTION);
   const term = String(search ?? '').trim();
-  if (term && !area) {
-    q = q.orderBy('name').startAt(term).endAt(term + HIGH_SENTINEL);
-  } else {
-    q = q.orderBy('name');
+
+  if (area) {
+    // Equality on one field — served by the automatic index. Order and any
+    // prefix match are applied in memory, deliberately avoiding a composite.
+    const snap = await col.where('area', '==', area).limit(limit).get();
+    let courts = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    if (term) courts = courts.filter((c) => String(c.name ?? '').startsWith(term));
+    courts.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    return courts;
   }
+
+  // No area filter: order by name (single-field), with an optional prefix range.
+  let q = col.orderBy('name');
+  if (term) q = q.startAt(term).endAt(term + HIGH_SENTINEL);
 
   const snap = await q.limit(limit).get();
-  let courts = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
-  // When both filters are present the prefix is applied here rather than adding
-  // a composite index for a collection this small.
-  if (term && area) {
-    courts = courts.filter((c) => String(c.name ?? '').startsWith(term));
-  }
-
-  return courts;
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
 export async function createCourt(input) {

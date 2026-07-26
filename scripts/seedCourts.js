@@ -12,29 +12,35 @@ import { getFirestore } from '../src/config/firebase.js';
 import { COURTS_COLLECTION } from '../src/services/courtsService.js';
 
 // ===========================================================================
-// TODO(arun): fill in the real Chennai padel venues.
+// The real Chennai padel venues. This is the production directory, not test
+// data — these persist into launch and carry NO throwaway marker.
 //
-// The entries below are PLACEHOLDERS with invented addresses. They are here to
-// show the shape and to let the endpoint be exercised end-to-end. Replace them
-// wholesale — do not launch on these.
+// Each court is name + area only. `address` is not collected yet (stored null),
+// and `isPartner` is false until a venue actually has a commercial arrangement —
+// exactly what createCourt would write for a court given only name and area, so
+// these documents are byte-identical to one created through POST /courts.
 //
-// For each venue you need:
-//   name      — as players say it, since this is what they pick from a list
-//   address   — free text; shown, never parsed
+//   name      — as players say it; this is what they pick from a list.
 //   area      — the GROUPING KEY for the leaderboard's area filter. Keep these
-//               consistent ("Nungambakkam", not "nungambakkam" / "Nungambakam"),
-//               because GET /courts?area= is an exact-match query. A typo makes
-//               a court invisible to the filter.
-//   isPartner — true only for venues with a commercial arrangement.
+//               spelled consistently, because GET /courts?area= is an exact-match
+//               query — a typo makes a court invisible to the filter.
+//
+// Two venues are named "Ballpark" in different areas (Kottivakkam and
+// Arumbakkam). They are DISTINCT courts and must stay two documents — the dedup
+// key below is name+area, so both are kept, not collapsed by name.
 //
 // Courts gate match submission (CLAUDE.md > Anti-Abuse Rules): a match requires
-// that its court exists here. A missing venue means those players cannot log
-// matches at all, so completeness matters more than tidiness.
+// that its court exists here, so completeness matters.
 // ===========================================================================
 const COURTS = [
-  { name: 'PLACEHOLDER — Padel Park Chennai', address: 'TODO', area: 'Nungambakkam', isPartner: false },
-  { name: 'PLACEHOLDER — Smash Padel Club', address: 'TODO', area: 'Velachery', isPartner: false },
-  { name: 'PLACEHOLDER — The Padel Court OMR', address: 'TODO', area: 'OMR', isPartner: false },
+  { name: '7Padel', area: 'Palavakkam' },
+  { name: 'PRC', area: 'Vadapalani' },
+  { name: 'Padlr', area: 'Palavakkam' },
+  { name: 'Madras Rally', area: 'Velachery' },
+  { name: 'Ballpark', area: 'Kottivakkam' },
+  { name: 'Ballpark', area: 'Arumbakkam' },
+  { name: 'Neighbourhood Nets', area: 'Alwarpet' },
+  { name: 'Serv', area: 'T Nagar' },
 ];
 
 async function main() {
