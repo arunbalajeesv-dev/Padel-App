@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
 import { getMatch, confirmMatch, ApiError } from '../api/index.js';
+import { useAuth } from '../auth/authContext.js';
 import { formatScore, formatDate, teamNames } from './homeView.js';
 
 /**
@@ -9,12 +10,14 @@ import { formatScore, formatDate, teamNames } from './homeView.js';
  *
  * The client renders what the API returns and calls confirmMatch — it never
  * computes a rating. When a confirm COMPLETES the match, the engine has already
- * moved the ratings server-side, so we route back to Home where the updated
- * rating and now-rated match appear.
+ * moved the ratings server-side, so we RE-FETCH the profile before landing on
+ * Home — otherwise the rating card would show the pre-match cached value (the
+ * "still 2.3 after losing" bug).
  */
 export default function ConfirmMatch() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { refreshProfile } = useAuth();
 
   const [load, setLoad] = useState({ status: 'loading', data: null, error: null });
   const [submitting, setSubmitting] = useState(false);
@@ -44,6 +47,14 @@ export default function ConfirmMatch() {
       // way the right place to land is Home: a completed match shows as rated
       // with a moved rating; a partial one shows as pending-waiting.
       await confirmMatch(id);
+
+      // A completing confirm has already moved this player's rating server-side.
+      // Re-fetch the profile so the auth context (which Home's rating card reads)
+      // holds the new value, not the pre-match cache. Swallow a refresh failure —
+      // the confirm itself succeeded, so we still proceed to Home rather than
+      // stranding the player on this screen; Home will reconcile on next load.
+      await refreshProfile().catch(() => {});
+
       navigate('/', { replace: true });
     } catch (err) {
       setSubmitError(err);

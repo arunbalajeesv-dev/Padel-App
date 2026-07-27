@@ -186,6 +186,11 @@ export async function createUser({ uid, phone, input, config }) {
 
   const doc = {
     ...profile,
+    // Lowercased+trimmed copy of the name, stored so search can be
+    // case-insensitive. Firestore range queries are case-SENSITIVE, so a search
+    // for "arun" cannot match a stored "Arun" without a folded field to match
+    // against. See searchUsers and scripts/backfillNameLower.js.
+    nameLower: String(profile.name ?? '').trim().toLowerCase(),
     // Identity comes from the token. A client-supplied phone would break the
     // one-account-per-number rule.
     phone: phone ?? null,
@@ -254,19 +259,27 @@ export async function setAnchor(uid, isAnchor) {
 }
 
 /**
- * Search players by name prefix.
+ * Search players by name prefix, CASE-INSENSITIVELY.
  *
- * Firestore has no substring search, so this is a case-sensitive prefix range
- * query: [q, q + HIGH_SENTINEL]. `endAt(q)` alone would match only an exact
- * name. Good enough for ~100 players; revisit if the club grows.
+ * Firestore has no substring search and its range queries are case-sensitive, so
+ * we match against `nameLower` (the folded name written by createUser). The query
+ * is lowercased+trimmed the same way, then run as a prefix range [q, q +
+ * HIGH_SENTINEL]. `endAt(q)` alone would match only an exact name.
+ *
+ * This orders and ranges on the SINGLE field `nameLower`, which Firestore serves
+ * from its automatic single-field index — NO composite index is required.
+ *
+ * Existing users need `nameLower` backfilled once (scripts/backfillNameLower.js);
+ * a user without it simply will not appear in search until backfilled. Good
+ * enough for ~100 players; revisit if the club grows.
  */
 export async function searchUsers(query, { limit = 20 } = {}) {
-  const q = String(query ?? '').trim();
+  const q = String(query ?? '').trim().toLowerCase();
   if (q.length === 0) return [];
 
   const snap = await getFirestore()
     .collection(USERS_COLLECTION)
-    .orderBy('name')
+    .orderBy('nameLower')
     .startAt(q)
     .endAt(q + HIGH_SENTINEL)
     .limit(limit)

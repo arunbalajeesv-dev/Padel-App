@@ -7,6 +7,9 @@ const userUpdate = vi.fn();
 const configGet = vi.fn();
 const searchGet = vi.fn();
 
+// Captures the search query shape so tests can assert it folds case correctly.
+const searchQuery = {};
+
 import { VALID_CONFIG as CONFIG } from '../fixtures/config.js';
 
 // One Firestore double serving both `config/rating` and `users`.
@@ -17,9 +20,20 @@ vi.mock('../../src/config/firebase.js', () => ({
       if (name === 'config') return { doc: () => ({ get: configGet }) };
       return {
         doc: () => ({ get: userGet, create: userCreate, update: userUpdate }),
-        orderBy: () => ({
-          startAt: () => ({ endAt: () => ({ limit: () => ({ get: searchGet }) }) }),
-        }),
+        orderBy: (field) => {
+          searchQuery.orderBy = field;
+          return {
+            startAt: (v) => {
+              searchQuery.startAt = v;
+              return {
+                endAt: (v2) => {
+                  searchQuery.endAt = v2;
+                  return { limit: () => ({ get: searchGet }) };
+                },
+              };
+            },
+          };
+        },
       };
     },
   }),
@@ -130,6 +144,19 @@ describe('POST /users — the signup bootstrap', () => {
     expect(written.rating).toEqual({ value: 1500, rd: 350, sigma: 0.06 });
     expect(written.status).toBe('placement');
     expect(written.gamesPlayed).toBe(0);
+  });
+
+  it('writes a lowercased nameLower for case-insensitive search', async () => {
+    userGet.mockResolvedValue({ exists: false });
+
+    await call('POST', '/users', {
+      token: 'good',
+      body: { name: '  Arun Kumar  ', gender: 'M' },
+    });
+
+    const written = userCreate.mock.calls[0][0];
+    expect(written.name).toBe('  Arun Kumar  '); // display name unchanged
+    expect(written.nameLower).toBe('arun kumar'); // folded + trimmed
   });
 
   it('never writes a trustScore field', async () => {
@@ -355,6 +382,16 @@ describe('PATCH /users/:id — admin gender correction', () => {
 });
 
 describe('GET /users/search', () => {
+  it('is CASE-INSENSITIVE: folds the query and matches against nameLower', async () => {
+    // The whole point of the fix. A mixed-case query must match a stored name
+    // regardless of case, via the folded nameLower field.
+    await call('GET', '/users/search?q=ArUn', { token: 'good' });
+
+    expect(searchQuery.orderBy).toBe('nameLower'); // not `name`
+    expect(searchQuery.startAt).toBe('arun'); // lowercased + trimmed
+    expect(searchQuery.endAt.startsWith('arun')).toBe(true);
+  });
+
   it('returns name, area and ratingDisplay only', async () => {
     searchGet.mockResolvedValue({
       docs: [{ id: 'uid-2', data: () => ({ ...EXISTING, name: 'Anita' }) }],
