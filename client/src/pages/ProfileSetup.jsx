@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { createUser, ApiError } from '../api/index.js';
 import { useAuth } from '../auth/authContext.js';
 import { fieldErrorsFrom } from './profileErrors.js';
+import { CHENNAI_AREAS } from './chennaiAreas.js';
 
 /**
  * Profile setup — the screen a phone-verified player sees before they have a
@@ -24,13 +25,6 @@ import { fieldErrorsFrom } from './profileErrors.js';
  * This screen sends data and renders the result. It computes nothing about
  * ratings — see client/CLAUDE.md.
  */
-
-/** Common Chennai areas as suggestions. The field accepts anything. */
-const CHENNAI_AREAS = [
-  'Adyar', 'Alwarpet', 'Anna Nagar', 'Besant Nagar', 'ECR', 'Guindy',
-  'Mylapore', 'Nungambakkam', 'OMR', 'Perungudi', 'Porur', 'Sholinganallur',
-  'T. Nagar', 'Thoraipakkam', 'Velachery',
-];
 
 export default function ProfileSetup() {
   const navigate = useNavigate();

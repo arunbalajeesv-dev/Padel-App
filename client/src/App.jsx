@@ -5,6 +5,7 @@ import Placeholder from './pages/Placeholder.jsx';
 import Home from './pages/Home.jsx';
 import LogMatch from './pages/log/LogMatch.jsx';
 import ConfirmMatch from './pages/ConfirmMatch.jsx';
+import Leaderboard from './pages/Leaderboard.jsx';
 import ProfileSetup from './pages/ProfileSetup.jsx';
 import { AuthProvider } from './auth/AuthProvider.jsx';
 import { useAuth } from './auth/authContext.js';
@@ -47,15 +48,7 @@ export default function App() {
           >
             <Route index element={<Home />} />
             <Route path="log" element={<LogMatch />} />
-            <Route
-              path="leaderboard"
-              element={
-                <Placeholder
-                  title="Leaderboard"
-                  note="Men's, Women's and Open, filtered by area."
-                />
-              }
-            />
+            <Route path="leaderboard" element={<Leaderboard />} />
             <Route
               path="profile"
               element={
