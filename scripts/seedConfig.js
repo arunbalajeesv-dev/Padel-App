@@ -83,25 +83,27 @@ const CONFIG_V1 = {
   // Tier thresholds. A player must clear BOTH the RD bound and the games floor
   // to advance — the two are ANDed, never ORed.
   //
-  //   placement    RD >= 150, or fewer than 8 games   (hidden from leaderboard)
-  //   provisional  RD <  150 and >= 8 games
+  //   placement    RD >= 250, or fewer than 3 games   (hidden from leaderboard)
+  //   provisional  RD <  250 and >= 3 games
   //   established  RD <  100 and >= 10 games
   //
-  // Bounds are STRICT: a player at exactly RD 150 is still in placement.
+  // Bounds are STRICT: a player at exactly RD 250 is still in placement.
   //
-  // The games floors are not redundant with the RD bounds. They exist so the UI
-  // can say "3 more matches to appear on the leaderboard" instead of "your RD is
-  // 162". See CLAUDE.md > "Tiers and Placement".
+  // LAUNCH ADJUSTMENT (not a Step-9 value). Placement exit was loosened from
+  // "RD < 150 AND >= 8 games" to "RD < 250 AND >= 3 games" so players appear on
+  // the leaderboard after ~3 confirmed matches instead of never (at 3 games RD
+  // sits ~245, so the old RD<150 bound was the binding constraint and no one
+  // crossed it early). This deliberately trades rating stability for a populated
+  // board: early top ranks will shuffle noticeably as high-RD ratings converge.
+  // Tighten back toward the Step-9 values once match volume makes an empty board
+  // no longer a risk. Only the tier thresholds changed — the rating math is
+  // untouched. See CLAUDE.md > "Tiers and Placement" and > Resolved.
   rdThresholds: {
-    placement: 150,
+    placement: 250,
     provisional: 100,
   },
-  // Set from Step 9: the 90th percentile of matches-to-placement-exit for a
-  // skill-CLUSTERED population (our closed beta), as Open Question 1 specified.
-  // The clustered distribution is the one that matters — closer matches are more
-  // informative, so RD falls faster than an open population would suggest.
   gamesPlayedFloors: {
-    provisional: 8,
+    provisional: 3,
     established: 10,
   },
 
