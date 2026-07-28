@@ -4,9 +4,15 @@
  * tap target with a chevron icon, shared so every sub-screen's back button
  * looks and behaves identically rather than each hand-rolling a "←" glyph.
  */
-export default function BackButton({ onClick, label = 'Back' }) {
+export default function BackButton({ onClick, label = 'Back', disabled = false }) {
   return (
-    <button type="button" className="back-btn" aria-label={label} onClick={onClick}>
+    <button
+      type="button"
+      className="back-btn"
+      aria-label={label}
+      onClick={onClick}
+      disabled={disabled}
+    >
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path
           d="M15 5l-7 7 7 7"

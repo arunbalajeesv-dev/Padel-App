@@ -1,0 +1,19 @@
+rules_version = '2';
+
+// Deny every direct client access path, authenticated or not. The only writer
+// is the Admin SDK (src/services/photoService.js), which bypasses these rules
+// entirely — this file exists to make sure nothing else can. Uploaded photos
+// are made PUBLIC at write time (see uploadProfilePhoto), so reads happen via
+// their public URL and never touch this rule set either; "deny all" here is
+// what stops a client from writing an arbitrary object into the bucket or
+// reading one through the Firebase SDK directly, which would bypass the
+// upload validation (file type, size) the API enforces. See
+// client/CLAUDE.md: "Firebase in this app is Auth-in-the-browser and nothing
+// else."
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

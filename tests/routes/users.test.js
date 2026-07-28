@@ -12,6 +12,14 @@ const searchQuery = {};
 
 import { VALID_CONFIG as CONFIG } from '../fixtures/config.js';
 
+// Photo upload (the actual Storage write) is unit-tested in
+// tests/services/photoService.test.js; here we only need the route's own
+// behaviour — parsing, validation passthrough, and wiring the result into
+// updateUser — so the service is a test double.
+const validatePhoto = vi.fn(() => []);
+const uploadProfilePhoto = vi.fn(() => 'https://storage.googleapis.com/bucket/users/uid-1/profile.jpg');
+vi.mock('../../src/services/photoService.js', () => ({ validatePhoto, uploadProfilePhoto }));
+
 // One Firestore double serving both `config/rating` and `users`.
 vi.mock('../../src/config/firebase.js', () => ({
   getAuth: () => ({ verifyIdToken }),
@@ -70,6 +78,25 @@ async function call(method, path, { token, body } = {}) {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  return { status: res.status, body: await res.json().catch(() => null) };
+}
+
+/**
+ * A real multipart/form-data request — no manual Content-Type, so fetch sets
+ * the correct boundary itself. This exercises the ACTUAL multer parsing in
+ * the route, not a stand-in for it.
+ */
+async function uploadPhoto({ token = 'good', field = 'photo', bytes = 'fake-image-bytes', filename = 'me.jpg', type = 'image/jpeg' } = {}) {
+  const server = await sharedServer();
+  const form = new FormData();
+  if (bytes !== null) {
+    form.append(field, new Blob([bytes], { type }), filename);
+  }
+  const res = await fetch(`http://127.0.0.1:${server.address().port}/users/me/photo`, {
+    method: 'POST',
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: form,
   });
   return { status: res.status, body: await res.json().catch(() => null) };
 }
@@ -304,6 +331,70 @@ describe('PATCH /users/me', () => {
   });
 });
 
+describe('POST /users/me/photo', () => {
+  it('uploads the file and writes the resulting URL via photoUrl', async () => {
+    const { status, body } = await uploadPhoto();
+
+    expect(status).toBe(200);
+    expect(uploadProfilePhoto).toHaveBeenCalledTimes(1);
+    // uploadProfilePhoto's second arg is the multer file object — just check
+    // the parsed mimetype and buffer made it through, not the whole shape.
+    expect(uploadProfilePhoto.mock.calls[0][0]).toBe('uid-1'); // req.uid
+    expect(uploadProfilePhoto.mock.calls[0][1].mimetype).toBe('image/jpeg');
+    expect(Buffer.isBuffer(uploadProfilePhoto.mock.calls[0][1].buffer)).toBe(true);
+
+    expect(userUpdate.mock.calls[0][0].photoUrl).toBe(
+      'https://storage.googleapis.com/bucket/users/uid-1/profile.jpg',
+    );
+    expect(body.name).toBe('Arun'); // toSelfView of the (mocked) updated user
+  });
+
+  it('400s when no file is attached', async () => {
+    // req.file really is undefined here (nothing was sent) — validatePhoto's
+    // OWN handling of that is covered for real in photoService.test.js; this
+    // only confirms the route surfaces whatever validatePhoto says.
+    validatePhoto.mockReturnValueOnce(['A photo file is required.']);
+
+    const { status, body } = await uploadPhoto({ bytes: null });
+
+    expect(status).toBe(400);
+    expect(uploadProfilePhoto).not.toHaveBeenCalled();
+    expect(body.errors).toContain('A photo file is required.');
+  });
+
+  it('400s when validatePhoto rejects the file (wrong type, too large, …)', async () => {
+    validatePhoto.mockReturnValueOnce(['Photo must be a JPEG, PNG, or WebP image.']);
+
+    const { status, body } = await uploadPhoto({ type: 'image/gif' });
+
+    expect(status).toBe(400);
+    expect(body.errors).toContain('Photo must be a JPEG, PNG, or WebP image.');
+    expect(uploadProfilePhoto).not.toHaveBeenCalled();
+  });
+
+  it('400s a file over the multer size limit, rather than a raw 500', async () => {
+    // Multer's own limit (5MB) fires before validatePhoto ever sees the file.
+    const big = 'x'.repeat(6 * 1024 * 1024);
+    const { status, body } = await uploadPhoto({ bytes: big });
+
+    expect(status).toBe(400);
+    expect(body.errors[0]).toMatch(/5MB/);
+    expect(uploadProfilePhoto).not.toHaveBeenCalled();
+  });
+
+  it('401s without a token', async () => {
+    expect((await uploadPhoto({ token: null })).status).toBe(401);
+  });
+
+  it('ignores an unexpected field name — no file reaches the handler', async () => {
+    const { status, body } = await uploadPhoto({ field: 'notPhoto' });
+
+    expect(status).toBe(400);
+    expect(uploadProfilePhoto).not.toHaveBeenCalled();
+    expect(body.errors).toBeDefined();
+  });
+});
+
 describe('PATCH /users/:id — admin gender correction', () => {
   const asAdmin = (isAdmin) =>
     userGet.mockResolvedValue({
@@ -392,7 +483,7 @@ describe('GET /users/search', () => {
     expect(searchQuery.endAt.startsWith('arun')).toBe(true);
   });
 
-  it('returns name, area and ratingDisplay only', async () => {
+  it('returns name, photoUrl, area and ratingDisplay only', async () => {
     searchGet.mockResolvedValue({
       docs: [{ id: 'uid-2', data: () => ({ ...EXISTING, name: 'Anita' }) }],
     });
@@ -404,6 +495,7 @@ describe('GET /users/search', () => {
       'area',
       'id',
       'name',
+      'photoUrl',
       'ratingDisplay',
     ]);
   });

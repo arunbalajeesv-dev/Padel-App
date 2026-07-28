@@ -130,10 +130,10 @@ describe('toSelfView', () => {
 });
 
 describe('toPublicView', () => {
-  it('exposes name, area and ratingDisplay only', () => {
+  it('exposes name, photoUrl, area and ratingDisplay only', () => {
     const view = toPublicView(USER, CONFIG);
 
-    expect(Object.keys(view).sort()).toEqual(['area', 'id', 'name', 'ratingDisplay']);
+    expect(Object.keys(view).sort()).toEqual(['area', 'id', 'name', 'photoUrl', 'ratingDisplay']);
     assertNoLeak(view);
   });
 
@@ -151,11 +151,11 @@ describe('toPublicView', () => {
 });
 
 describe('toPlayerView — another player\'s profile screen', () => {
-  it('exposes name, gender, area, ratingDisplay, status, gamesPlayed and createdAt', () => {
+  it('exposes name, photoUrl, gender, area, ratingDisplay, status, gamesPlayed and createdAt', () => {
     const view = toPlayerView(USER, CONFIG);
 
     expect(Object.keys(view).sort()).toEqual(
-      ['area', 'createdAt', 'gamesPlayed', 'gender', 'id', 'name', 'ratingDisplay', 'status'].sort(),
+      ['area', 'createdAt', 'gamesPlayed', 'gender', 'id', 'name', 'photoUrl', 'ratingDisplay', 'status'].sort(),
     );
     expect(view.ratingDisplay).toBeCloseTo(3.33, 2);
     expect(view.status).toBe('established');

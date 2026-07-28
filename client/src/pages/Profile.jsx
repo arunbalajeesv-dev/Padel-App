@@ -7,6 +7,7 @@ import { tierLabel } from './homeView.js';
 import { memberSince, gamesPlayedLabel, genderLabel } from './profileView.js';
 import { CHENNAI_AREAS } from './chennaiAreas.js';
 import PastMatches from './PastMatches.jsx';
+import PhotoPicker from './PhotoPicker.jsx';
 
 /**
  * Profile: the signed-in player's own details, edit, match history and sign
@@ -25,6 +26,16 @@ export default function Profile() {
   const [fieldErrors, setFieldErrors] = useState({});
   const [formError, setFormError] = useState(null);
   const [saving, setSaving] = useState(false);
+
+  // Shows the new photo instantly on upload, rather than waiting on
+  // refreshProfile's round trip — refreshProfile still runs, to keep the auth
+  // context (and every other screen reading `profile`) in sync.
+  const [photoOverride, setPhotoOverride] = useState(null);
+
+  async function handlePhotoUploaded(photoUrl) {
+    setPhotoOverride(photoUrl);
+    await refreshProfile();
+  }
 
   const [matches, setMatches] = useState({
     status: 'loading',
@@ -95,9 +106,12 @@ export default function Profile() {
   return (
     <section className="page profile-page">
       <header className="profile-header">
-        <div className="avatar avatar-large" aria-hidden="true">
-          {profile.name?.[0]?.toUpperCase() ?? '?'}
-        </div>
+        <PhotoPicker
+          photoUrl={photoOverride ?? profile.photoUrl}
+          name={profile.name}
+          size={64}
+          onUploaded={handlePhotoUploaded}
+        />
         <div>
           <h1 className="profile-name">{profile.name}</h1>
           <p className="profile-meta">{memberSince(profile.createdAt)}</p>

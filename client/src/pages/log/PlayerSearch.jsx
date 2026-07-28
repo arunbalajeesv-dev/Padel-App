@@ -68,7 +68,11 @@ export default function PlayerSearch({ label, excludeIds, onPick, onCancel }) {
         {results.map((p) => (
           <button key={p.id} type="button" className="player-row" onClick={() => onPick(p)}>
             <span className="avatar" aria-hidden="true">
-              {p.name?.[0]?.toUpperCase() ?? '?'}
+              {p.photoUrl ? (
+                <img className="avatar-img" src={p.photoUrl} alt="" />
+              ) : (
+                p.name?.[0]?.toUpperCase() ?? '?'
+              )}
             </span>
             <span className="player-info">
               <span className="player-name">{p.name}</span>

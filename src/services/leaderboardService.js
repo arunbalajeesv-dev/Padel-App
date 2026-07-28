@@ -119,6 +119,7 @@ export async function getLeaderboard({ pool = 'open', area = null, period = '30d
     rank: index + 1,
     id: player.id,
     name: player.name,
+    photoUrl: player.photoUrl ?? null,
     area: player.area ?? null,
     ratingDisplay: toDisplayRating(player.rating.value, config),
     movement: movements[index],

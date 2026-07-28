@@ -76,7 +76,7 @@ describe('GET /users/:id — another player\'s profile', () => {
 
     expect(status).toBe(200);
     expect(Object.keys(body).sort()).toEqual(
-      ['area', 'createdAt', 'gamesPlayed', 'gender', 'id', 'name', 'ratingDisplay', 'status'].sort(),
+      ['area', 'createdAt', 'gamesPlayed', 'gender', 'id', 'name', 'photoUrl', 'ratingDisplay', 'status'].sort(),
     );
     expect(body.name).toBe('Anita');
     expect(body.gender).toBe('F');

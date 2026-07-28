@@ -135,7 +135,13 @@ export default function Leaderboard() {
           onClick={() => navigate('/profile')}
         >
           <span className="placement-label">Placement</span>
-          <span className="avatar" aria-hidden="true">{profile?.name?.[0]?.toUpperCase() ?? '?'}</span>
+          <span className="avatar" aria-hidden="true">
+            {profile?.photoUrl ? (
+              <img className="avatar-img" src={profile.photoUrl} alt="" />
+            ) : (
+              profile?.name?.[0]?.toUpperCase() ?? '?'
+            )}
+          </span>
           <span className="player-info">
             <span className="lb-name">{profile?.name} (You)</span>
             <span className="lb-area">{profile?.area ?? '—'}</span>
@@ -161,7 +167,13 @@ function Row({ row, isMe, onSelect }) {
           {move.char}
         </span>
       </div>
-      <span className="avatar" aria-hidden="true">{row.name?.[0]?.toUpperCase() ?? '?'}</span>
+      <span className="avatar" aria-hidden="true">
+        {row.photoUrl ? (
+          <img className="avatar-img" src={row.photoUrl} alt="" />
+        ) : (
+          row.name?.[0]?.toUpperCase() ?? '?'
+        )}
+      </span>
       <span className="player-info">
         <span className="lb-name">{row.name}{isMe ? ' (You)' : ''}</span>
         <span className="lb-area">{row.area ?? '—'}</span>

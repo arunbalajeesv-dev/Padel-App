@@ -207,6 +207,18 @@ describe('typed endpoint methods', () => {
     expect(JSON.parse(optsOf().body).idempotencyKey).toBe(key);
   });
 
+  it('uploads a photo as multipart form data, with no explicit Content-Type', async () => {
+    // Setting Content-Type manually would strip the multipart boundary the
+    // browser generates, and the server could not parse the body at all.
+    const file = new File(['bytes'], 'me.jpg', { type: 'image/jpeg' });
+    await api.uploadPhoto(file);
+
+    expect(optsOf().method).toBe('POST');
+    expect(optsOf().headers['Content-Type']).toBeUndefined();
+    expect(optsOf().body).toBeInstanceOf(FormData);
+    expect(optsOf().body.get('photo')).toBe(file);
+  });
+
   it('mints a distinct key per call, so callers must hold their own', async () => {
     expect(api.newIdempotencyKey()).not.toBe(api.newIdempotencyKey());
     expect(api.newIdempotencyKey()).toMatch(

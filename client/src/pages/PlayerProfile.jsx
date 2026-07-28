@@ -87,7 +87,11 @@ function ProfileContent({ profile, matchesLoad }) {
     <section className="profile-page">
       <header className="profile-header">
         <div className="avatar avatar-large" aria-hidden="true">
-          {profile.name?.[0]?.toUpperCase() ?? '?'}
+          {profile.photoUrl ? (
+            <img className="avatar-img" src={profile.photoUrl} alt="" />
+          ) : (
+            profile.name?.[0]?.toUpperCase() ?? '?'
+          )}
         </div>
         <div>
           <h1 className="profile-name">{profile.name}</h1>

@@ -1,9 +1,28 @@
 import { Router } from 'express';
+import multer from 'multer';
 
 import { requireVerifiedToken, requireAdmin } from '../middleware/auth.js';
 import { getConfig } from '../services/configService.js';
 import * as users from '../services/usersService.js';
 import { listRecentForPlayer } from '../services/matchesService.js';
+import { validatePhoto, uploadProfilePhoto } from '../services/photoService.js';
+
+/** Buffered in memory, never written to disk — 5MB matches validatePhoto's cap. */
+const photoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+}).single('photo');
+
+/**
+ * Run multer as a promise instead of router middleware, so an oversized or
+ * malformed upload becomes an ordinary 400 from THIS route's own try/catch
+ * rather than an uncaught MulterError reaching the generic error handler.
+ */
+function parsePhotoUpload(req, res) {
+  return new Promise((resolve, reject) => {
+    photoUpload(req, res, (err) => (err ? reject(err) : resolve()));
+  });
+}
 
 /**
  * Signup only. Mounted ABOVE the blanket requireAuth, because the caller by
@@ -91,6 +110,45 @@ usersRouter.patch('/users/me', async (req, res, next) => {
     const config = await getConfig();
     const updated = await users.updateUser(req.uid, req.body);
 
+    return res.json(users.toSelfView(updated, config));
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/**
+ * Upload a profile photo. Multipart, one file field named `photo`.
+ *
+ * The client never touches Firebase Storage directly (see photoService.js) —
+ * this is the one path a photo can reach it, through the Admin SDK. Reuses
+ * `updateUser`'s existing `photoUrl` allowlist entry rather than writing the
+ * field directly, so this stays subject to the same patch path as any other
+ * profile edit.
+ */
+usersRouter.post('/users/me/photo', async (req, res, next) => {
+  try {
+    try {
+      await parsePhotoUpload(req, res);
+    } catch (err) {
+      if (err instanceof multer.MulterError) {
+        const reason =
+          err.code === 'LIMIT_FILE_SIZE'
+            ? 'Photo must be 5MB or smaller.'
+            : `Upload failed: ${err.message}`;
+        return res.status(400).json({ error: 'Bad Request', errors: [reason] });
+      }
+      throw err;
+    }
+
+    const errors = validatePhoto(req.file);
+    if (errors.length > 0) {
+      return res.status(400).json({ error: 'Bad Request', errors });
+    }
+
+    const photoUrl = await uploadProfilePhoto(req.uid, req.file);
+    const updated = await users.updateUser(req.uid, { photoUrl });
+
+    const config = await getConfig();
     return res.json(users.toSelfView(updated, config));
   } catch (err) {
     return next(err);

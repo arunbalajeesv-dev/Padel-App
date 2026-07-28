@@ -90,13 +90,14 @@ export function toSelfView(user, config) {
 /**
  * Strip a user document to what ANOTHER player may see.
  *
- * Search results expose name, area and ratingDisplay only — never phone, never
- * internal rating state.
+ * Search results expose name, photoUrl, area and ratingDisplay only — never
+ * phone, never internal rating state.
  */
 export function toPublicView(user, config) {
   return {
     id: user.id,
     name: user.name,
+    photoUrl: user.photoUrl ?? null,
     area: user.area ?? null,
     ratingDisplay: toDisplayRating(user.rating.value, config),
   };
@@ -116,6 +117,7 @@ export function toPlayerView(user, config) {
   return {
     id: user.id,
     name: user.name,
+    photoUrl: user.photoUrl ?? null,
     gender: user.gender,
     area: user.area ?? null,
     ratingDisplay: toDisplayRating(user.rating.value, config),

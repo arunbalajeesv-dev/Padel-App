@@ -64,10 +64,22 @@ export default function StepPlayers({ me, partner, opponents, onChange }) {
   );
 }
 
+function PlayerAvatar({ player }) {
+  return (
+    <span className="avatar" aria-hidden="true">
+      {player.photoUrl ? (
+        <img className="avatar-img" src={player.photoUrl} alt="" />
+      ) : (
+        player.name?.[0]?.toUpperCase() ?? '?'
+      )}
+    </span>
+  );
+}
+
 function FixedSlot({ player, you }) {
   return (
     <div className="player-row player-row-fixed">
-      <span className="avatar" aria-hidden="true">{player.name?.[0]?.toUpperCase() ?? '?'}</span>
+      <PlayerAvatar player={player} />
       <span className="player-info">
         <span className="player-name">{player.name}{you && ' (you)'}</span>
         <span className="player-area">{player.area ?? '—'}</span>
@@ -87,7 +99,7 @@ function Slot({ player, label, onAdd, onClear }) {
   }
   return (
     <div className="player-row">
-      <span className="avatar" aria-hidden="true">{player.name?.[0]?.toUpperCase() ?? '?'}</span>
+      <PlayerAvatar player={player} />
       <span className="player-info">
         <span className="player-name">{player.name}</span>
         <span className="player-area">{player.area ?? '—'}</span>

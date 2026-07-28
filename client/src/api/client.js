@@ -56,21 +56,25 @@ function buildUrl(path, query) {
  * Perform a request.
  *
  * @param {string} path e.g. '/users/me'
- * @param {{method?: string, body?: object, query?: object, auth?: boolean}} options
+ * @param {{method?: string, body?: object|FormData, query?: object, auth?: boolean}} options
  *   `auth: false` skips the bearer header — only health checks need that.
+ *   A `FormData` body (photo upload) is sent as-is, with no `Content-Type` set
+ *   — the browser fills in `multipart/form-data` plus the boundary itself;
+ *   setting it manually strips that boundary and the server cannot parse it.
  * @returns {Promise<any>} parsed JSON, or null for 204.
  * @throws {ApiError} on any non-2xx response.
  */
 export async function request(path, { method = 'GET', body, query, auth = true } = {}) {
+  const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
   const headers = { ...(auth ? await authHeader() : {}) };
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  if (body !== undefined && !isFormData) headers['Content-Type'] = 'application/json';
 
   let response;
   try {
     response = await fetch(buildUrl(path, query), {
       method,
       headers,
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      ...(body !== undefined ? { body: isFormData ? body : JSON.stringify(body) } : {}),
     });
   } catch (cause) {
     // Network-level failure: no response at all. Status 0 marks "never reached

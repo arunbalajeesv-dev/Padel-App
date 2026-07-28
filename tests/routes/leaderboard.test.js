@@ -287,6 +287,7 @@ describe('GET /leaderboard — exposure', () => {
       rank: 1,
       id: 'someone',
       name: 'someone',
+      photoUrl: null,
       area: 'OMR',
       ratingDisplay: expect.any(Number),
       movement: 'flat',

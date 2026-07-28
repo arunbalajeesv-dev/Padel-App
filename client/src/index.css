@@ -275,32 +275,9 @@ body {
 
 .photo-block {
   margin-bottom: 24px;
-}
-
-/* 80px circle with a '+' badge, per the wireframe. */
-.photo-upload {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  background-color: #d0d0d0;
-  margin: 0 auto;
-  position: relative;
-}
-
-.photo-upload::after {
-  content: '+';
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 24px;
-  height: 24px;
-  background: var(--navy);
-  color: #fff;
-  border-radius: 50%;
-  font-size: 16px;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
 }
 
 .photo-caption {
@@ -707,6 +684,11 @@ body {
 
 .back-btn:active {
   background: #e2e2e2;
+}
+
+.back-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .log-title {
@@ -1152,11 +1134,22 @@ body {
 
 /* --- Confirm Match screen (ConfirmMatch.html) ----------------------------- */
 
+/*
+ * This used to carry `margin: -24px -20px 0`, copying the bleed-to-edge trick
+ * `.leaderboard`/`.log-flow` use to cancel `.app-content`'s padding. Those two
+ * genuinely render INSIDE `.app-content` (they're TabLayout tabs), so the
+ * negative margin has real padding to cancel. `.confirm-page` does not: every
+ * screen that uses it (ConfirmMatch, DisputeMatch, PlayerProfile,
+ * HowRatingsWork) is a standalone route outside TabLayout — see App.jsx's
+ * "focused sub-screens" block — so it renders directly inside `#root`, which
+ * has no padding to cancel. The result was the whole page shifted left and up
+ * by the bleed amount: content hugging the left edge with no inset, and the
+ * same gap missing from the top.
+ */
 .confirm-page {
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh - 80px);
-  margin: -24px -20px 0;
+  min-height: 100vh;
 }
 
 .confirm-header {
@@ -1835,4 +1828,105 @@ body {
   font-size: 13px;
   color: #555;
   line-height: 1.5;
+}
+
+/* --- Photo picker (PhotoPicker.jsx) ---------------------------------------- */
+
+.photo-picker-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.photo-picker {
+  position: relative;
+  border: none;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.photo-picker:disabled {
+  cursor: default;
+}
+
+.photo-picker-circle {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #d0d0d0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  font-weight: bold;
+}
+
+.photo-picker-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-picker-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.photo-picker-overlay .spinner {
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  border-color: rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+}
+
+.photo-picker-badge {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 24px;
+  height: 24px;
+  background: var(--navy);
+  color: #fff;
+  border-radius: 50%;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.photo-picker-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.photo-picker-error {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #c00;
+  text-align: center;
+  max-width: 220px;
+}
+
+/* An avatar showing a real photo elsewhere (Profile, PlayerProfile,
+   Leaderboard, PlayerSearch) — the `.avatar`/`.avatar-large` circle stays the
+   fallback container; this just fills it with an image instead of a letter. */
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
 }

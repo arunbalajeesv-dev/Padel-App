@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { createUser, ApiError } from '../api/index.js';
+import { createUser, uploadPhoto, ApiError } from '../api/index.js';
 import { useAuth } from '../auth/authContext.js';
 import { fieldErrorsFrom } from './profileErrors.js';
 import { CHENNAI_AREAS } from './chennaiAreas.js';
+import PhotoPicker from './PhotoPicker.jsx';
 
 /**
  * Profile setup — the screen a phone-verified player sees before they have a
@@ -37,6 +38,28 @@ export default function ProfileSetup() {
   const [formError, setFormError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Picked here, uploaded only after the profile exists — see PhotoPicker's
+  // "DEFERRED mode" note. POST /users/me/photo requires a profile document,
+  // which does not exist until createUser below succeeds.
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+
+  function handlePhotoSelected(file) {
+    setPhotoFile(file);
+    setPhotoPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
+  }
+
+  // Object URLs are not garbage-collected on their own — release the last one
+  // if the player navigates away mid-setup.
+  useEffect(() => {
+    return () => {
+      if (photoPreview) URL.revokeObjectURL(photoPreview);
+    };
+  }, [photoPreview]);
+
   /** Land on Home with the auth context knowing we now have a profile. */
   async function enterApp() {
     await refreshProfile();
@@ -65,8 +88,17 @@ export default function ProfileSetup() {
         // Omitted when blank rather than sent as '' — an empty string is a
         // valid string to the API and would be stored as a real, empty area.
         ...(area.trim() ? { area: area.trim() } : {}),
-        // No photoUrl: image upload is not wired yet (Storage deferred).
+        // photoUrl is deliberately absent: it is set by uploading below, once
+        // a profile document actually exists for it to attach to.
       });
+
+      if (photoFile) {
+        // Non-fatal: the account already exists at this point. A failed
+        // upload should not strand the player on this screen — they can add
+        // a photo later from Profile.
+        await uploadPhoto(photoFile).catch(() => {});
+      }
+
       await enterApp();
     } catch (err) {
       // A profile already exists for this account. That is not a failure — the
@@ -92,12 +124,16 @@ export default function ProfileSetup() {
       </p>
 
       <form className="setup-form" onSubmit={handleSubmit} noValidate>
-        {/* Photo is a placeholder until Storage is wired. Non-interactive on
-            purpose: a control that looks tappable and does nothing is worse
-            than one that plainly says "later". */}
         <div className="photo-block">
-          <div className="photo-upload" aria-hidden="true" />
-          <p className="photo-caption">Photo can be added later</p>
+          <PhotoPicker
+            photoUrl={photoPreview}
+            name={name}
+            onFileSelected={handlePhotoSelected}
+            disabled={submitting}
+          />
+          <p className="photo-caption">
+            {photoPreview ? 'Added once you finish' : 'Optional — can be added later'}
+          </p>
         </div>
 
         <div className="form-group">

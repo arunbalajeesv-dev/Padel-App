@@ -9,6 +9,7 @@ import StepCourt from './StepCourt.jsx';
 import StepPlayers from './StepPlayers.jsx';
 import StepScore from './StepScore.jsx';
 import StepReview from './StepReview.jsx';
+import BackButton from '../BackButton.jsx';
 
 /**
  * The Log Match flow: court → players → score → review → submit.
@@ -26,7 +27,7 @@ const STEP_COUNT = 4;
 export default function LogMatch() {
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const me = { id: profile.id, name: profile.name, area: profile.area };
+  const me = { id: profile.id, name: profile.name, area: profile.area, photoUrl: profile.photoUrl };
 
   const [step, setStep] = useState(1);
   const [court, setCourt] = useState(null);
@@ -111,9 +112,7 @@ export default function LogMatch() {
   return (
     <section className="log-flow">
       <header className="log-header">
-        <button type="button" className="back-btn" aria-label="Back" onClick={back} disabled={submitting}>
-          ←
-        </button>
+        <BackButton onClick={back} disabled={submitting} />
         <h1 className="log-title">Log a match</h1>
       </header>
 

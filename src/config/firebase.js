@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { initializeApp, getApps, getApp, cert } from 'firebase-admin/app';
 import { getFirestore as firestoreFor } from 'firebase-admin/firestore';
 import { getAuth as authFor } from 'firebase-admin/auth';
+import { getStorage as storageFor } from 'firebase-admin/storage';
 
 /**
  * Service account credentials, from whichever source is configured.
@@ -137,6 +138,24 @@ function readCredentials() {
   return credentials;
 }
 
+/**
+ * The Storage bucket name, e.g. `chennai-padel.firebasestorage.app`. Required
+ * only by callers of `getStorage()` — a deployment that never uploads a photo
+ * should not be forced to configure it, so this is read lazily rather than at
+ * app-init time.
+ */
+function readStorageBucket() {
+  const bucket = process.env.FIREBASE_STORAGE_BUCKET;
+  if (!bucket) {
+    throw new Error(
+      'FIREBASE_STORAGE_BUCKET is not set. Copy the bucket name from the ' +
+        'Firebase console (Storage > Files) or the client\'s ' +
+        'VITE_FIREBASE_STORAGE_BUCKET — the two must match.',
+    );
+  }
+  return bucket;
+}
+
 let app;
 
 function getFirebaseApp() {
@@ -157,4 +176,9 @@ export function getFirestore() {
 
 export function getAuth() {
   return authFor(getFirebaseApp());
+}
+
+/** The Storage bucket, for server-side reads/writes via the Admin SDK only. */
+export function getStorage() {
+  return storageFor(getFirebaseApp()).bucket(readStorageBucket());
 }

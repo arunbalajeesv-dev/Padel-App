@@ -4,10 +4,13 @@ const initializeApp = vi.fn(() => ({ name: 'mock-app' }));
 const getApps = vi.fn(() => []);
 const getApp = vi.fn(() => ({ name: 'existing-app' }));
 const cert = vi.fn((creds) => ({ _creds: creds }));
+const bucket = vi.fn((name) => ({ _bucket: name }));
+const getStorage = vi.fn(() => ({ bucket }));
 
 vi.mock('firebase-admin/app', () => ({ initializeApp, getApps, getApp, cert }));
 vi.mock('firebase-admin/firestore', () => ({ getFirestore: vi.fn(() => 'firestore') }));
 vi.mock('firebase-admin/auth', () => ({ getAuth: vi.fn(() => 'auth') }));
+vi.mock('firebase-admin/storage', () => ({ getStorage }));
 
 const PEM = '-----BEGIN PRIVATE KEY-----\\nAAAA\\nBBBB\\n-----END PRIVATE KEY-----\\n';
 
@@ -99,5 +102,37 @@ describe('firebase config', () => {
 
     expect(initializeApp).not.toHaveBeenCalled();
     expect(getApp).toHaveBeenCalled();
+  });
+});
+
+describe('getStorage', () => {
+  it('throws a clear error when FIREBASE_STORAGE_BUCKET is not set', async () => {
+    setEnv();
+    vi.stubEnv('FIREBASE_STORAGE_BUCKET', '');
+
+    const { getStorage: getStorageExport } = await loadFresh();
+    expect(() => getStorageExport()).toThrow(/FIREBASE_STORAGE_BUCKET is not set/);
+  });
+
+  it('opens the configured bucket by name', async () => {
+    setEnv();
+    vi.stubEnv('FIREBASE_STORAGE_BUCKET', 'chennai-padel.firebasestorage.app');
+
+    const { getStorage: getStorageExport } = await loadFresh();
+    getStorageExport();
+
+    expect(bucket).toHaveBeenCalledWith('chennai-padel.firebasestorage.app');
+  });
+
+  it('does not require a storage bucket to use Firestore or Auth', async () => {
+    // A deployment that never uploads a photo should not be forced to
+    // configure FIREBASE_STORAGE_BUCKET — it is read lazily, only by callers
+    // of getStorage().
+    setEnv();
+    vi.stubEnv('FIREBASE_STORAGE_BUCKET', '');
+
+    const { getFirestore, getAuth } = await loadFresh();
+    expect(() => getFirestore()).not.toThrow();
+    expect(() => getAuth()).not.toThrow();
   });
 });

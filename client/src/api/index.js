@@ -42,6 +42,23 @@ export function patchMe(patch) {
 }
 
 /**
+ * Upload a new profile photo. `file` is a browser File/Blob, typically from
+ * an `<input type="file">`. The server validates type (JPEG/PNG/WebP) and
+ * size (5MB), uploads it, and writes the resulting URL to `photoUrl` — the
+ * response is the caller's full updated self-view, same shape as getMe().
+ *
+ * Sent as multipart form data, not JSON — see client.js's `request` for why
+ * that means no explicit Content-Type here.
+ *
+ * @param {File|Blob} file
+ */
+export function uploadPhoto(file) {
+  const form = new FormData();
+  form.append('photo', file);
+  return request('/users/me/photo', { method: 'POST', body: form });
+}
+
+/**
  * Matches awaiting the caller's confirmation — Home's highest-priority section.
  *
  * @returns {Promise<{matches: object[], players: Record<string,string>,
