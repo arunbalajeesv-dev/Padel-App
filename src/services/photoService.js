@@ -60,3 +60,26 @@ export async function uploadProfilePhoto(uid, file) {
 
   return blob.publicUrl();
 }
+
+/**
+ * Delete a player's stored profile photo, if one exists.
+ *
+ * The extension isn't tracked separately from the file itself, so this tries
+ * every extension `uploadProfilePhoto` can produce rather than guessing from
+ * `photoUrl` — at most one will ever exist, since uploading always overwrites
+ * the same fixed path. A missing file (already deleted, or never uploaded) is
+ * not an error here; the caller's intent — "no photo" — is already satisfied.
+ */
+export async function deleteProfilePhoto(uid) {
+  const bucket = getStorage();
+
+  await Promise.all(
+    Object.values(EXT_FOR_TYPE).map(async (ext) => {
+      try {
+        await bucket.file(`users/${uid}/profile.${ext}`).delete();
+      } catch (err) {
+        if (err?.code !== 404) throw err;
+      }
+    }),
+  );
+}

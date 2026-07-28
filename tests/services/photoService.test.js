@@ -2,16 +2,20 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const save = vi.fn();
 const publicUrl = vi.fn(() => 'https://storage.googleapis.com/bucket/users/uid-1/profile.jpg');
-const file = vi.fn(() => ({ save, publicUrl }));
+const deleteFile = vi.fn().mockResolvedValue(undefined);
+const file = vi.fn(() => ({ save, publicUrl, delete: deleteFile }));
 const getStorage = vi.fn(() => ({ file }));
 
 vi.mock('../../src/config/firebase.js', () => ({ getStorage }));
 
-const { validatePhoto, uploadProfilePhoto } = await import('../../src/services/photoService.js');
+const { validatePhoto, uploadProfilePhoto, deleteProfilePhoto } = await import(
+  '../../src/services/photoService.js'
+);
 
 beforeEach(() => {
   vi.clearAllMocks();
   publicUrl.mockReturnValue('https://storage.googleapis.com/bucket/users/uid-1/profile.jpg');
+  deleteFile.mockResolvedValue(undefined);
 });
 
 describe('validatePhoto', () => {
@@ -70,5 +74,29 @@ describe('uploadProfilePhoto', () => {
 
     expect(file).toHaveBeenNthCalledWith(1, 'users/uid-1/profile.jpg');
     expect(file).toHaveBeenNthCalledWith(2, 'users/uid-1/profile.jpg');
+  });
+});
+
+describe('deleteProfilePhoto', () => {
+  it('tries every extension uploadProfilePhoto can produce, since none is tracked separately', async () => {
+    await deleteProfilePhoto('uid-1');
+
+    const paths = file.mock.calls.map((call) => call[0]);
+    expect(paths.sort()).toEqual(
+      ['users/uid-1/profile.jpg', 'users/uid-1/profile.png', 'users/uid-1/profile.webp'].sort(),
+    );
+    expect(deleteFile).toHaveBeenCalledTimes(3);
+  });
+
+  it('treats a missing file (404) as success, not an error', async () => {
+    deleteFile.mockRejectedValue(Object.assign(new Error('not found'), { code: 404 }));
+
+    await expect(deleteProfilePhoto('uid-1')).resolves.toBeUndefined();
+  });
+
+  it('still throws on a real failure, e.g. a permissions error', async () => {
+    deleteFile.mockRejectedValue(Object.assign(new Error('permission denied'), { code: 403 }));
+
+    await expect(deleteProfilePhoto('uid-1')).rejects.toThrow('permission denied');
   });
 });

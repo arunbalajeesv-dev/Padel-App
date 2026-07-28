@@ -231,6 +231,17 @@ describe('disputes queue and resolve', () => {
     expect(body.disputes[0].match.winner).toBe('A'); // joined context
   });
 
+  it('resolves player uids to names, so the admin surface never renders a raw uid', async () => {
+    seedDispute();
+    const { body } = await get('/admin/disputes');
+
+    // 'x' and 'y' are uids on the match that were never seeded as real users —
+    // resolveNames silently omits what it cannot resolve, same as elsewhere.
+    expect(body.players.alice).toBe('Alice');
+    expect(body.players.bob).toBe('Bob');
+    expect(body.players.x).toBeUndefined();
+  });
+
   it('excludes resolved disputes from the queue', async () => {
     seedDispute();
     db.state.set('disputes/d1', { ...db.state.get('disputes/d1'), status: 'resolved' });

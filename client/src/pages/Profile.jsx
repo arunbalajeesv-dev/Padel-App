@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { useAuth } from '../auth/authContext.js';
-import { patchMe, getRecentMatches } from '../api/index.js';
+import { patchMe, getRecentMatches, deletePhoto, ApiError } from '../api/index.js';
 import { fieldErrorsFrom } from './profileErrors.js';
 import { tierLabel } from './homeView.js';
 import { memberSince, gamesPlayedLabel, genderLabel } from './profileView.js';
@@ -27,14 +27,42 @@ export default function Profile() {
   const [formError, setFormError] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  // Shows the new photo instantly on upload, rather than waiting on
-  // refreshProfile's round trip — refreshProfile still runs, to keep the auth
-  // context (and every other screen reading `profile`) in sync.
-  const [photoOverride, setPhotoOverride] = useState(null);
+  // Shows the new photo (or its removal) instantly, rather than waiting on
+  // refreshProfile's round trip — refreshProfile still runs either way, to
+  // keep the auth context (and every other screen reading `profile`) in sync.
+  //
+  // `undefined` means "no override yet — show profile.photoUrl". That has to
+  // be a distinct sentinel from `null`: null is a real override value (photo
+  // was just removed), and `null ?? profile.photoUrl` would otherwise fall
+  // through to the old photo instead of showing "removed".
+  const [photoOverride, setPhotoOverride] = useState(undefined);
+  const [removingPhoto, setRemovingPhoto] = useState(false);
+  const [removePhotoError, setRemovePhotoError] = useState(null);
+
+  const displayedPhotoUrl = photoOverride !== undefined ? photoOverride : profile?.photoUrl ?? null;
 
   async function handlePhotoUploaded(photoUrl) {
     setPhotoOverride(photoUrl);
     await refreshProfile();
+  }
+
+  async function handleRemovePhoto() {
+    if (removingPhoto) return;
+    setRemovingPhoto(true);
+    setRemovePhotoError(null);
+    try {
+      await deletePhoto();
+      setPhotoOverride(null);
+      await refreshProfile();
+    } catch (err) {
+      setRemovePhotoError(
+        err instanceof ApiError && err.status === 0
+          ? "Couldn't reach the server. Check your connection and try again."
+          : 'Could not remove your photo. Please try again.',
+      );
+    } finally {
+      setRemovingPhoto(false);
+    }
   }
 
   const [matches, setMatches] = useState({
@@ -106,12 +134,29 @@ export default function Profile() {
   return (
     <section className="page profile-page">
       <header className="profile-header">
-        <PhotoPicker
-          photoUrl={photoOverride ?? profile.photoUrl}
-          name={profile.name}
-          size={64}
-          onUploaded={handlePhotoUploaded}
-        />
+        <div className="profile-photo-col">
+          <PhotoPicker
+            photoUrl={displayedPhotoUrl}
+            name={profile.name}
+            size={64}
+            onUploaded={handlePhotoUploaded}
+          />
+          {displayedPhotoUrl && (
+            <button
+              type="button"
+              className="btn-link btn-link-inline"
+              onClick={handleRemovePhoto}
+              disabled={removingPhoto}
+            >
+              {removingPhoto ? 'Removing…' : 'Remove'}
+            </button>
+          )}
+          {removePhotoError && (
+            <p className="photo-picker-error" role="alert">
+              {removePhotoError}
+            </p>
+          )}
+        </div>
         <div>
           <h1 className="profile-name">{profile.name}</h1>
           <p className="profile-meta">{memberSince(profile.createdAt)}</p>

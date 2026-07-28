@@ -18,7 +18,12 @@ import { VALID_CONFIG as CONFIG } from '../fixtures/config.js';
 // updateUser — so the service is a test double.
 const validatePhoto = vi.fn(() => []);
 const uploadProfilePhoto = vi.fn(() => 'https://storage.googleapis.com/bucket/users/uid-1/profile.jpg');
-vi.mock('../../src/services/photoService.js', () => ({ validatePhoto, uploadProfilePhoto }));
+const deleteProfilePhoto = vi.fn().mockResolvedValue(undefined);
+vi.mock('../../src/services/photoService.js', () => ({
+  validatePhoto,
+  uploadProfilePhoto,
+  deleteProfilePhoto,
+}));
 
 // One Firestore double serving both `config/rating` and `users`.
 vi.mock('../../src/config/firebase.js', () => ({
@@ -392,6 +397,30 @@ describe('POST /users/me/photo', () => {
     expect(status).toBe(400);
     expect(uploadProfilePhoto).not.toHaveBeenCalled();
     expect(body.errors).toBeDefined();
+  });
+});
+
+describe('DELETE /users/me/photo', () => {
+  it('deletes the stored file and clears photoUrl back to null', async () => {
+    const { status, body } = await call('DELETE', '/users/me/photo', { token: 'good' });
+
+    expect(status).toBe(200);
+    expect(deleteProfilePhoto).toHaveBeenCalledWith('uid-1');
+    expect(userUpdate.mock.calls[0][0].photoUrl).toBeNull();
+    expect(body.name).toBe('Arun'); // toSelfView of the (mocked) updated user
+  });
+
+  it('401s without a token', async () => {
+    expect((await call('DELETE', '/users/me/photo')).status).toBe(401);
+  });
+
+  it('surfaces a real Storage failure as a 500, not a silent success', async () => {
+    deleteProfilePhoto.mockRejectedValueOnce(new Error('permission denied'));
+
+    const { status } = await call('DELETE', '/users/me/photo', { token: 'good' });
+
+    expect(status).toBe(500);
+    expect(userUpdate).not.toHaveBeenCalled();
   });
 });
 

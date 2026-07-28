@@ -177,9 +177,12 @@ export function toMatchView(match) {
  * One batched read for users and one for courts, regardless of how many matches
  * — the Home screen shows a handful, and this keeps it to two round trips.
  *
+ * Exported for disputesService's admin queue, which needs the same
+ * uid-to-name resolution over a different collection's documents.
+ *
  * @returns {Promise<{players: Record<string,string>, courts: Record<string,string>}>}
  */
-async function resolveNames(matches) {
+export async function resolveNames(matches) {
   const db = getFirestore();
 
   const playerIds = [...new Set(matches.flatMap((m) => m.players ?? []))];

@@ -59,6 +59,15 @@ export function uploadPhoto(file) {
 }
 
 /**
+ * Remove your profile photo. Deletes the stored file server-side and clears
+ * `photoUrl` back to null — the response is the caller's full updated
+ * self-view, same shape as getMe().
+ */
+export function deletePhoto() {
+  return request('/users/me/photo', { method: 'DELETE' });
+}
+
+/**
  * Matches awaiting the caller's confirmation — Home's highest-priority section.
  *
  * @returns {Promise<{matches: object[], players: Record<string,string>,

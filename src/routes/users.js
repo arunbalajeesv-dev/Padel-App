@@ -5,7 +5,7 @@ import { requireVerifiedToken, requireAdmin } from '../middleware/auth.js';
 import { getConfig } from '../services/configService.js';
 import * as users from '../services/usersService.js';
 import { listRecentForPlayer } from '../services/matchesService.js';
-import { validatePhoto, uploadProfilePhoto } from '../services/photoService.js';
+import { validatePhoto, uploadProfilePhoto, deleteProfilePhoto } from '../services/photoService.js';
 
 /** Buffered in memory, never written to disk — 5MB matches validatePhoto's cap. */
 const photoUpload = multer({
@@ -147,6 +147,24 @@ usersRouter.post('/users/me/photo', async (req, res, next) => {
 
     const photoUrl = await uploadProfilePhoto(req.uid, req.file);
     const updated = await users.updateUser(req.uid, { photoUrl });
+
+    const config = await getConfig();
+    return res.json(users.toSelfView(updated, config));
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/**
+ * Remove the caller's profile photo — deletes the stored file and clears
+ * `photoUrl` back to null. `photoUrl: null` is already a valid `updateUser`
+ * patch (validateProfile explicitly allows null), so this reuses that path
+ * rather than writing the field directly.
+ */
+usersRouter.delete('/users/me/photo', async (req, res, next) => {
+  try {
+    await deleteProfilePhoto(req.uid);
+    const updated = await users.updateUser(req.uid, { photoUrl: null });
 
     const config = await getConfig();
     return res.json(users.toSelfView(updated, config));

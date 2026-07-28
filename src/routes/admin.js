@@ -38,7 +38,7 @@ function handleServiceError(err, res, next) {
 
 adminRouter.get('/disputes', async (req, res, next) => {
   try {
-    return res.json({ disputes: await disputes.listQueue() });
+    return res.json(await disputes.listQueue());
   } catch (err) {
     return next(err);
   }

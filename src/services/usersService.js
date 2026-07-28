@@ -61,6 +61,14 @@ const GENDERS = Object.freeze(['M', 'F']);
  * Allowlist, not denylist. `rating.value`, `rating.rd`, `rating.sigma` and
  * `trustScore` never appear in any client-facing response — only ratingDisplay
  * and status. See CLAUDE.md: all rating math is server-side and never exposed.
+ *
+ * `isAdmin` DOES appear here — it did not always. Knowing your own admin flag
+ * is not a security leak (the actual gate is `requireAdmin`, checked
+ * server-side on every admin request regardless of what the client believes);
+ * it was excluded only because nothing consumed it. The admin panel now does,
+ * to decide whether to show its own entry point at all. It must still never
+ * appear in `toPublicView`/`toPlayerView` — seeing WHO ELSE is an admin is a
+ * real information leak (a map of who to target), unlike seeing your own flag.
  */
 export function toSelfView(user, config) {
   return {
@@ -74,6 +82,7 @@ export function toSelfView(user, config) {
     status: user.status,
     gamesPlayed: user.gamesPlayed,
     isAnchor: user.isAnchor === true,
+    isAdmin: user.isAdmin === true,
     // The leaderboard countdown, computed server-side so the client never has to
     // reason about RD. `status` is 'visible' | 'counting' | 'settling', and
     // `matchesRemaining` is a number ONLY in the counting state — never an

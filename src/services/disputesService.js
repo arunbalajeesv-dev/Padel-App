@@ -18,7 +18,7 @@
  * ---------------------------------------------------------------------------
  */
 import { getFirestore } from '../config/firebase.js';
-import { MATCHES_COLLECTION, STATUS, playersOf } from './matchesService.js';
+import { MATCHES_COLLECTION, STATUS, playersOf, resolveNames } from './matchesService.js';
 
 export const DISPUTES_COLLECTION = 'disputes';
 
@@ -222,7 +222,9 @@ function disputeQueueView(dispute, match) {
 /**
  * The live dispute queue, each entry joined to its match for context.
  *
- * @returns {Promise<object[]>} newest first.
+ * @returns {Promise<{disputes: object[], players: Record<string,string>}>}
+ *   `disputes` newest first. `players` resolves every uid appearing in any of
+ *   them to a name, so the admin surface never has to render a raw uid.
  */
 export async function listQueue() {
   const db = getFirestore();
@@ -235,13 +237,19 @@ export async function listQueue() {
     .filter((d) => LIVE.includes(d.status))
     .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
 
-  return Promise.all(
+  const matches = await Promise.all(
     live.map(async (dispute) => {
       const matchSnap = await db.collection(MATCHES_COLLECTION).doc(dispute.matchId).get();
-      const match = matchSnap.exists ? { id: matchSnap.id, ...matchSnap.data() } : null;
-      return disputeQueueView(dispute, match);
+      return matchSnap.exists ? { id: matchSnap.id, ...matchSnap.data() } : null;
     }),
   );
+
+  const { players } = await resolveNames(matches.filter(Boolean));
+
+  return {
+    disputes: live.map((dispute, i) => disputeQueueView(dispute, matches[i])),
+    players,
+  };
 }
 
 /**

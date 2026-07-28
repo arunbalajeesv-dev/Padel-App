@@ -219,6 +219,14 @@ describe('typed endpoint methods', () => {
     expect(optsOf().body.get('photo')).toBe(file);
   });
 
+  it('deletes a photo with no body', async () => {
+    await api.deletePhoto();
+
+    expect(urlOf()).toContain('/users/me/photo');
+    expect(optsOf().method).toBe('DELETE');
+    expect(optsOf().body).toBeUndefined();
+  });
+
   it('mints a distinct key per call, so callers must hold their own', async () => {
     expect(api.newIdempotencyKey()).not.toBe(api.newIdempotencyKey());
     expect(api.newIdempotencyKey()).toMatch(
