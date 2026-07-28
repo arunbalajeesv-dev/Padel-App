@@ -95,6 +95,14 @@ export default function Home() {
         </div>
 
         {placement.show && <p className="placement-note">{placement.text}</p>}
+
+        <button
+          type="button"
+          className="rating-info-link"
+          onClick={() => navigate('/how-ratings-work')}
+        >
+          How is this calculated?
+        </button>
       </div>
 
       {/* 3. Pending confirmations — the priority. Collapses when empty. */}

@@ -473,6 +473,19 @@ body {
   line-height: 1.4;
 }
 
+.rating-info-link {
+  display: block;
+  margin: 14px auto 0;
+  border: none;
+  background: none;
+  color: #b8c4d6;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  min-height: 32px;
+}
+
 /* Sections */
 .home-section {
   display: flex;
@@ -1748,4 +1761,78 @@ body {
   align-self: center;
   margin-top: 4px;
   color: #900;
+}
+
+/* --- How ratings work (HowRatingsWork.jsx) --------------------------------- */
+
+.explainer-intro {
+  font-size: 14px;
+  color: #555;
+  line-height: 1.5;
+}
+
+.tier-journey {
+  display: flex;
+  gap: 8px;
+}
+
+.tier-step {
+  flex: 1;
+  text-align: center;
+  padding: 14px 8px;
+  border-radius: 10px;
+  background: #f4f4f4;
+  border: 1px solid #e2e2e2;
+}
+
+.tier-step-active {
+  background: radial-gradient(circle at 30% 0%, var(--navy-light) 0%, var(--navy-deep) 70%);
+  border-color: var(--navy-deep);
+  color: #fff;
+}
+
+.tier-step-label {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.tier-step-blurb {
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: inherit;
+  opacity: 0.8;
+}
+
+.tier-step-you {
+  margin-top: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--gold);
+}
+
+.principle-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.principle-card {
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.principle-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.principle-body {
+  font-size: 13px;
+  color: #555;
+  line-height: 1.5;
 }

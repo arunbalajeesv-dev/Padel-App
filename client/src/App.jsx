@@ -8,6 +8,7 @@ import DisputeMatch from './pages/DisputeMatch.jsx';
 import Leaderboard from './pages/Leaderboard.jsx';
 import Profile from './pages/Profile.jsx';
 import PlayerProfile from './pages/PlayerProfile.jsx';
+import HowRatingsWork from './pages/HowRatingsWork.jsx';
 import ProfileSetup from './pages/ProfileSetup.jsx';
 import Splash from './pages/Splash.jsx';
 import { AuthProvider } from './auth/AuthProvider.jsx';
@@ -77,6 +78,14 @@ export default function App() {
             element={
               <RequireAuth>
                 <PlayerProfile />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/how-ratings-work"
+            element={
+              <RequireAuth>
+                <HowRatingsWork />
               </RequireAuth>
             }
           />
