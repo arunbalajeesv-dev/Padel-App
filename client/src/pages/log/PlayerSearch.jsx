@@ -44,7 +44,7 @@ export default function PlayerSearch({ label, excludeIds, onPick, onCancel }) {
   return (
     <div className="player-search">
       <div className="player-search-top">
-        <span className="section-title">{label}</span>
+        <span className="roster-label">{label}</span>
         <button type="button" className="btn-link btn-link-inline" onClick={onCancel}>
           Cancel
         </button>

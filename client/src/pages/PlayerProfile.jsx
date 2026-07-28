@@ -5,6 +5,7 @@ import { getUserProfile, getUserMatches, ApiError } from '../api/index.js';
 import { tierLabel } from './homeView.js';
 import { memberSince, gamesPlayedLabel, genderLabel } from './profileView.js';
 import PastMatches from './PastMatches.jsx';
+import BackButton from './BackButton.jsx';
 
 /**
  * Another player's profile, reached by tapping a row on the Leaderboard.
@@ -62,9 +63,7 @@ export default function PlayerProfile() {
   return (
     <div className="confirm-page">
       <header className="confirm-header">
-        <button type="button" className="back-btn" aria-label="Back" onClick={() => navigate(-1)}>
-          ←
-        </button>
+        <BackButton onClick={() => navigate(-1)} />
         <h1 className="confirm-title">Player</h1>
       </header>
 

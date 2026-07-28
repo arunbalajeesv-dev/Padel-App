@@ -73,15 +73,6 @@ export default function Home() {
       {/* 1. Header */}
       <header className="home-header">
         <h1 className="home-greeting">Hi, {profile?.name ?? 'there'}</h1>
-        <button
-          className="bell"
-          type="button"
-          aria-label="Notifications"
-          title="Notifications"
-          onClick={() => navigate('/notifications')}
-        >
-          <span className="bell-icon" aria-hidden="true" />
-        </button>
       </header>
 
       {disputeFlash && (

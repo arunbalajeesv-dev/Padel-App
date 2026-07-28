@@ -1,7 +1,8 @@
 /*
- * Shell styling only. This is NOT the design system — it mirrors the wireframes'
- * deliberately monochrome placeholder look so that nothing here reads as a
- * settled visual decision.
+ * Shell styling. Formerly a deliberately monochrome placeholder; the brand
+ * colours below (navy + gold, from the Padel Chennai Community logo) are the
+ * one settled visual decision so far — everything else here still mirrors
+ * the wireframes and may change.
  *
  * One rule that is NOT placeholder and must survive whatever design lands:
  * a `pending` match must never look like a rated one. See client/CLAUDE.md.
@@ -18,6 +19,15 @@
     Arial, sans-serif;
   color: #333;
   background: #e0e0e0;
+
+  /* Brand — navy + gold, from the logo. Primary surfaces (buttons, active
+     nav/tab states, hero cards) use --navy; --gold is reserved for accents
+     ON a navy surface (a tier label, a progress fill) — it fails contrast as
+     text on the app's white background, so it never appears there. */
+  --navy: #12233d;
+  --navy-deep: #0c1830;
+  --navy-light: #1b3252;
+  --gold: #c9a24c;
 }
 
 body {
@@ -77,17 +87,20 @@ body {
 }
 
 .tab-active {
-  color: #111;
+  color: var(--navy);
 }
 
 .tab-icon {
   width: 24px;
   height: 24px;
-  background: #d0d0d0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.tab-active .tab-icon {
-  background: #333;
+.tab-icon svg {
+  width: 100%;
+  height: 100%;
 }
 
 .tab-label {
@@ -153,7 +166,7 @@ body {
 }
 
 .btn-primary {
-  background: #222;
+  background: var(--navy);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -214,7 +227,7 @@ body {
   justify-content: center;
   gap: 24px;
   min-height: 100vh;
-  background: radial-gradient(circle at 50% 35%, #1b3252 0%, #0c1830 75%);
+  background: radial-gradient(circle at 50% 35%, var(--navy-light) 0%, var(--navy-deep) 75%);
   color: #fff;
 }
 
@@ -225,7 +238,7 @@ body {
 
 .splash .spinner {
   border-color: rgba(255, 255, 255, 0.25);
-  border-top-color: #c9a24c;
+  border-top-color: var(--gold);
 }
 
 .sr-only {
@@ -281,7 +294,7 @@ body {
   right: 0;
   width: 24px;
   height: 24px;
-  background: #333;
+  background: var(--navy);
   color: #fff;
   border-radius: 50%;
   font-size: 16px;
@@ -358,7 +371,7 @@ body {
 }
 
 .segment-active {
-  background: #333;
+  background: var(--navy);
   color: #fff;
 }
 
@@ -396,7 +409,6 @@ body {
 .home-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
 }
 
 .home-greeting {
@@ -404,28 +416,9 @@ body {
   font-weight: 700;
 }
 
-.bell {
-  position: relative;
-  width: 44px;
-  height: 44px;
-  border: none;
-  background: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.bell-icon {
-  width: 22px;
-  height: 22px;
-  border-radius: 4px;
-  background: #d0d0d0;
-}
-
 /* Rating card — the hero. */
 .rating-card {
-  background: #1c1c1c;
+  background: radial-gradient(circle at 30% 0%, var(--navy-light) 0%, var(--navy-deep) 70%);
   color: #fff;
   border-radius: 16px;
   padding: 24px;
@@ -444,7 +437,7 @@ body {
   font-weight: 600;
   letter-spacing: 1px;
   text-transform: uppercase;
-  color: #bbb;
+  color: var(--gold);
 }
 
 .reliability {
@@ -453,20 +446,20 @@ body {
 
 .reliability-label {
   font-size: 12px;
-  color: #bbb;
+  color: #b8c4d6;
 }
 
 .reliability-track {
   margin-top: 6px;
   height: 6px;
   border-radius: 3px;
-  background: #3a3a3a;
+  background: rgba(255, 255, 255, 0.16);
   overflow: hidden;
 }
 
 .reliability-fill {
   height: 100%;
-  background: #fff;
+  background: var(--gold);
   border-radius: 3px;
 }
 
@@ -474,7 +467,7 @@ body {
   margin-top: 16px;
   font-size: 13px;
   color: #e8e8e8;
-  background: #2a2a2a;
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 8px;
   padding: 10px 12px;
   line-height: 1.4;
@@ -686,13 +679,21 @@ body {
 }
 
 .back-btn {
-  min-width: 44px;
-  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
   border: none;
-  background: none;
-  font-size: 22px;
-  font-weight: bold;
+  border-radius: 50%;
+  background: #f0f0f0;
+  color: var(--navy);
   cursor: pointer;
+}
+
+.back-btn:active {
+  background: #e2e2e2;
 }
 
 .log-title {
@@ -715,7 +716,7 @@ body {
 }
 
 .step-dot-active {
-  background: #222;
+  background: var(--navy);
 }
 
 .log-content {
@@ -805,7 +806,7 @@ body {
 }
 
 .tag-selected {
-  background: #222;
+  background: var(--navy);
   color: #fff;
 }
 
@@ -828,7 +829,16 @@ body {
   padding-bottom: 4px;
 }
 
-.section-title {
+/*
+ * Renamed from a second `.section-title` rule: that shared name with the
+ * generic heading style used on Home/Profile/ConfirmMatch/DisputeMatch (17px,
+ * not uppercase), and being later in the file, silently won the cascade
+ * everywhere — every "Recent activity" / "Details" / "Confirmation status"
+ * heading in the app was rendering small and uppercase instead of the
+ * intended bold heading. This is the small roster-header look on purpose;
+ * it just needed its own name.
+ */
+.roster-label {
   font-size: 13px;
   font-weight: 700;
   color: #555;
@@ -1204,7 +1214,7 @@ body {
 }
 
 .confirm-team-won .confirm-player {
-  color: #111;
+  color: var(--navy);
 }
 
 .won-badge {
@@ -1315,8 +1325,15 @@ body {
   padding: 16px 20px 0;
 }
 
-/* Segmented pool control */
-.segmented-control {
+/*
+ * Pool picker (Men's/Women's/Open). Named apart from the shared
+ * `.segmented-control` (ProfileSetup's gender picker) rather than reusing that
+ * class — the two were previously the same selector, and this one's `margin:
+ * 0 20px` combined with the shared rule's leftover `width: 100%` pushed the
+ * control 40px wider than the viewport, clipping "Open" off the right edge.
+ * Unscoped globals are how that happened; keep this one scoped to its own name.
+ */
+.pool-picker {
   display: flex;
   margin: 0 20px;
   border: 1px solid #aaa;
@@ -1324,9 +1341,9 @@ body {
   overflow: hidden;
 }
 
-.segment {
+.pool-option {
   flex: 1;
-  min-height: 40px;
+  min-height: 44px;
   border: none;
   border-right: 1px solid #aaa;
   background: #f9f9f9;
@@ -1336,12 +1353,12 @@ body {
   cursor: pointer;
 }
 
-.segment:last-child {
+.pool-option:last-child {
   border-right: none;
 }
 
-.segment-active {
-  background: #222;
+.pool-option-active {
+  background: var(--navy);
   color: #fff;
 }
 
@@ -1379,7 +1396,14 @@ body {
   flex-direction: column;
 }
 
-.player-row {
+/*
+ * Scoped under `.lb-rows` rather than a bare `.player-row` rule — `.player-row`
+ * is also the log flow's PlayerSearch/StepPlayers row class (a different size
+ * and spacing), and an unscoped redefinition here would silently change those
+ * too, purely because they share a class name. Same reasoning as `.pool-picker`
+ * above.
+ */
+.lb-rows .player-row {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1422,13 +1446,14 @@ body {
   color: #777;
 }
 
-.player-rating {
+.lb-rows .player-rating {
   font-size: 18px;
   font-weight: 700;
   margin-left: auto;
 }
 
-.player-info {
+.lb-rows .player-info,
+.sticky-user-card .player-info {
   display: flex;
   flex-direction: column;
 }
@@ -1565,7 +1590,7 @@ body {
 }
 
 .radio-item-active .radio-circle {
-  border-color: #222;
+  border-color: var(--navy);
 }
 
 .radio-item-active .radio-circle::after {
@@ -1573,7 +1598,7 @@ body {
   position: absolute;
   inset: 3px;
   border-radius: 50%;
-  background: #222;
+  background: var(--navy);
 }
 
 .radio-label {
@@ -1648,7 +1673,7 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  background: #1c1c1c;
+  background: radial-gradient(circle at 30% 0%, var(--navy-light) 0%, var(--navy-deep) 70%);
   color: #fff;
   border-radius: 12px;
   padding: 16px 12px;
@@ -1665,7 +1690,7 @@ body {
   font-weight: 600;
   letter-spacing: 0.5px;
   text-transform: uppercase;
-  color: #bbb;
+  color: var(--gold);
 }
 
 .profile-section {

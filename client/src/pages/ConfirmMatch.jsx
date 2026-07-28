@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getMatch, confirmMatch, ApiError } from '../api/index.js';
 import { useAuth } from '../auth/authContext.js';
 import { formatScore, formatDate, teamNames } from './homeView.js';
+import BackButton from './BackButton.jsx';
 
 /**
  * Confirm Match. Loads one match in full and lets a participant confirm it.
@@ -175,7 +176,7 @@ export default function ConfirmMatch() {
 function ConfirmHeader({ onBack, title = 'Match' }) {
   return (
     <header className="confirm-header">
-      <button type="button" className="back-btn" aria-label="Back" onClick={onBack}>←</button>
+      <BackButton onClick={onBack} />
       <h1 className="confirm-title">{title}</h1>
     </header>
   );

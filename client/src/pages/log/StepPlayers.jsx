@@ -48,7 +48,7 @@ export default function StepPlayers({ me, partner, opponents, onChange }) {
       <h2 className="step-heading">Who played?</h2>
 
       <section className="team-block team-block-mine">
-        <h3 className="section-title">Your team</h3>
+        <h3 className="roster-label">Your team</h3>
         <FixedSlot player={me} you />
         <Slot player={partner} label="Add partner" onAdd={() => setFilling('partner')} onClear={() => clear('partner')} />
       </section>
@@ -56,7 +56,7 @@ export default function StepPlayers({ me, partner, opponents, onChange }) {
       <div className="vs-divider">VS</div>
 
       <section className="team-block">
-        <h3 className="section-title">Opponents</h3>
+        <h3 className="roster-label">Opponents</h3>
         <Slot player={opponents[0]} label="Add opponent" onAdd={() => setFilling('opp0')} onClear={() => clear('opp0')} />
         <Slot player={opponents[1]} label="Add opponent" onAdd={() => setFilling('opp1')} onClear={() => clear('opp1')} />
       </section>

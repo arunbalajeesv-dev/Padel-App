@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getMatch, disputeMatch, ApiError } from '../api/index.js';
 import { formatScore, formatDate, teamNames } from './homeView.js';
 import { DISPUTE_REASONS, OTHER, composeReason, validateDispute } from './disputeReason.js';
+import BackButton from './BackButton.jsx';
 
 /**
  * Dispute Match. Reached from Confirm's "Something's wrong — dispute" link,
@@ -166,7 +167,7 @@ export default function DisputeMatch() {
 function DisputeHeader({ onBack }) {
   return (
     <header className="confirm-header">
-      <button type="button" className="back-btn" aria-label="Back" onClick={onBack}>←</button>
+      <BackButton onClick={onBack} />
       <h1 className="confirm-title">Dispute match</h1>
     </header>
   );

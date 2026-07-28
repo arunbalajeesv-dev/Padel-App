@@ -64,14 +64,14 @@ export default function Leaderboard() {
       <h1 className="lb-title">Leaderboard</h1>
 
       {/* Pool selector */}
-      <div className="segmented-control" role="tablist" aria-label="Leaderboard pool">
+      <div className="pool-picker" role="tablist" aria-label="Leaderboard pool">
         {POOLS.map((p) => (
           <button
             key={p.value}
             type="button"
             role="tab"
             aria-selected={pool === p.value}
-            className={pool === p.value ? 'segment segment-active' : 'segment'}
+            className={pool === p.value ? 'pool-option pool-option-active' : 'pool-option'}
             onClick={() => setPool(p.value)}
           >
             {p.label}
