@@ -426,3 +426,11 @@ describe('GET /users/search', () => {
     expect((await call('GET', '/users/search?q=An')).status).toBe(401);
   });
 });
+
+// GET /users/:id and GET /users/:id/matches need a caller and a target with
+// INDEPENDENT identities (e.g. a 404 for the target while the caller still
+// resolves fine) — this file's single shared userGet mock cannot distinguish
+// them, since requireAuth's own lookup of the caller and the route's lookup
+// of :id hit the exact same mock regardless of uid. Those routes are tested
+// in tests/routes/userProfile.test.js against the makeFirestore fixture,
+// which keys documents by id and can hold both at once.

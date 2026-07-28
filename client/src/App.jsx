@@ -7,6 +7,7 @@ import ConfirmMatch from './pages/ConfirmMatch.jsx';
 import DisputeMatch from './pages/DisputeMatch.jsx';
 import Leaderboard from './pages/Leaderboard.jsx';
 import Profile from './pages/Profile.jsx';
+import PlayerProfile from './pages/PlayerProfile.jsx';
 import ProfileSetup from './pages/ProfileSetup.jsx';
 import Splash from './pages/Splash.jsx';
 import { AuthProvider } from './auth/AuthProvider.jsx';
@@ -68,6 +69,14 @@ export default function App() {
             element={
               <RequireAuth>
                 <DisputeMatch />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/players/:id"
+            element={
+              <RequireAuth>
+                <PlayerProfile />
               </RequireAuth>
             }
           />

@@ -114,7 +114,14 @@ export default function Leaderboard() {
         {board.status === 'ready' && entries.length > 0 && (
           <div className="lb-rows">
             {entries.map((row) => (
-              <Row key={row.id} row={row} isMe={row.id === profile?.id} />
+              <Row
+                key={row.id}
+                row={row}
+                isMe={row.id === profile?.id}
+                // Tapping yourself goes to the editable own-profile tab, not
+                // the read-only PlayerProfile screen built for everyone else.
+                onSelect={() => navigate(row.id === profile?.id ? '/profile' : `/players/${row.id}`)}
+              />
             ))}
           </div>
         )}
@@ -122,7 +129,11 @@ export default function Leaderboard() {
 
       {/* The signed-in player, pinned, when they're not yet on the board. */}
       {inPlacement && placement.show && (
-        <div className="sticky-user-card">
+        <button
+          type="button"
+          className="sticky-user-card"
+          onClick={() => navigate('/profile')}
+        >
           <span className="placement-label">Placement</span>
           <span className="avatar" aria-hidden="true">{profile?.name?.[0]?.toUpperCase() ?? '?'}</span>
           <span className="player-info">
@@ -130,16 +141,20 @@ export default function Leaderboard() {
             <span className="lb-area">{profile?.area ?? '—'}</span>
           </span>
           <span className="placement-text">{placement.text}</span>
-        </div>
+        </button>
       )}
     </section>
   );
 }
 
-function Row({ row, isMe }) {
+function Row({ row, isMe, onSelect }) {
   const move = movementIndicator(row.movement);
   return (
-    <div className={isMe ? 'player-row player-row-me' : 'player-row'}>
+    <button
+      type="button"
+      className={isMe ? 'player-row player-row-me' : 'player-row'}
+      onClick={onSelect}
+    >
       <div className="rank-col">
         <span className="rank-number">{row.rank}</span>
         <span className={`rank-arrow ${move.className}`} title={move.label} aria-label={move.label}>
@@ -152,7 +167,7 @@ function Row({ row, isMe }) {
         <span className="lb-area">{row.area ?? '—'}</span>
       </span>
       <span className="player-rating">{row.ratingDisplay?.toFixed(1) ?? '—'}</span>
-    </div>
+    </button>
   );
 }
 

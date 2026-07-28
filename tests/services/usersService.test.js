@@ -8,6 +8,7 @@ vi.mock('../../src/config/firebase.js', () => ({
 const {
   toSelfView,
   toPublicView,
+  toPlayerView,
   validateCreate,
   validatePatch,
   CREATABLE_FIELDS,
@@ -146,6 +147,44 @@ describe('toPublicView', () => {
     expect(view.status).toBeUndefined();
     expect(view.gamesPlayed).toBeUndefined();
     expect(view.trustScore).toBeUndefined();
+  });
+});
+
+describe('toPlayerView — another player\'s profile screen', () => {
+  it('exposes name, gender, area, ratingDisplay, status, gamesPlayed and createdAt', () => {
+    const view = toPlayerView(USER, CONFIG);
+
+    expect(Object.keys(view).sort()).toEqual(
+      ['area', 'createdAt', 'gamesPlayed', 'gender', 'id', 'name', 'ratingDisplay', 'status'].sort(),
+    );
+    expect(view.ratingDisplay).toBeCloseTo(3.33, 2);
+    expect(view.status).toBe('established');
+    expect(view.gamesPlayed).toBe(24);
+    assertNoLeak(view);
+  });
+
+  it('never leaks another player\'s phone', () => {
+    expect(toPlayerView(USER, CONFIG).phone).toBeUndefined();
+  });
+
+  it('never leaks trustScore, isAdmin or isAnchor even if present on the document', () => {
+    const withExtras = { ...USER, trustScore: 87, isAnchor: true };
+    const view = toPlayerView(withExtras, CONFIG);
+
+    expect(view.trustScore).toBeUndefined();
+    expect(view.isAdmin).toBeUndefined();
+    expect(view.isAnchor).toBeUndefined();
+  });
+
+  it('never includes a placement countdown — that copy is first-person and does not apply to someone else', () => {
+    expect(toPlayerView(USER, CONFIG).placement).toBeUndefined();
+  });
+
+  it('is an allowlist — an unexpected field added later cannot leak', () => {
+    const withSecret = { ...USER, internalNotes: 'flagged for review', mu: 1.23 };
+
+    assertNoLeak(toPlayerView(withSecret, CONFIG));
+    expect(toPlayerView(withSecret, CONFIG).internalNotes).toBeUndefined();
   });
 });
 

@@ -78,6 +78,27 @@ export function searchUsers(q) {
   return request('/users/search', { query: { q } });
 }
 
+/**
+ * Another player's profile — reached from the leaderboard. Richer than
+ * search's public fields (adds gender, tier, games played, member-since), but
+ * still never rating internals. 404 if the player doesn't exist.
+ */
+export function getUserProfile(id) {
+  return request(`/users/${encodeURIComponent(id)}`);
+}
+
+/**
+ * Another player's recent rated matches, newest first — same shape as
+ * getRecentMatches, scoped to `id` instead of the caller.
+ *
+ * @param {{limit?: number}} [options]
+ */
+export function getUserMatches(id, options = {}) {
+  return request(`/users/${encodeURIComponent(id)}/matches`, {
+    query: { limit: options.limit },
+  });
+}
+
 // --- Courts ----------------------------------------------------------------
 
 /** @param {{area?: string, search?: string}} [filters] */

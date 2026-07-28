@@ -102,6 +102,29 @@ export function toPublicView(user, config) {
   };
 }
 
+/**
+ * Strip a user document to what ANOTHER player may see on a profile screen —
+ * richer than toPublicView (a deliberate look-up, not a quick-pick search
+ * result), but still an allowlist. Phone, rating internals (`value`, `rd`,
+ * `sigma`), trustScore, isAdmin and isAnchor never appear here, same as
+ * toPublicView. No placement countdown either — that copy is written in the
+ * first person ("N more matches to appear on the leaderboard") and would read
+ * as nonsense pointed at someone else; it also cannot apply to a player found
+ * via the leaderboard, since placement players never appear there.
+ */
+export function toPlayerView(user, config) {
+  return {
+    id: user.id,
+    name: user.name,
+    gender: user.gender,
+    area: user.area ?? null,
+    ratingDisplay: toDisplayRating(user.rating.value, config),
+    status: user.status,
+    gamesPlayed: user.gamesPlayed,
+    createdAt: user.createdAt,
+  };
+}
+
 /** Validation shared by create and patch. Returns an array of messages. */
 function validateProfile(input, { partial }) {
   const errors = [];

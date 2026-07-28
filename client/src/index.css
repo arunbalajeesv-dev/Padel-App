@@ -1438,10 +1438,15 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
+  width: 100%;
   padding: 16px 20px;
   background: #f8f8f8;
+  border: none;
   border-top: 1px solid #d0d0d0;
   box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.05);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .placement-label {

@@ -221,3 +221,66 @@ describe('GET /matches/recent', () => {
     expect((await get('/matches/recent')).body.matches).toEqual([]);
   });
 });
+
+describe('GET /users/:id/matches — another player\'s match history', () => {
+  it('returns confirmed matches for the TARGET player, regardless of who is asking', async () => {
+    // "me" is the caller (per verifyIdToken), but b1 is whose history we want.
+    db = makeFirestore(
+      seed({
+        m1: { teamA: ['b1', 'x2'], teamB: ['y1', 'y2'], players: ['b1', 'x2', 'y1', 'y2'], status: 'confirmed' },
+      }),
+    );
+
+    const { status, body } = await get('/users/b1/matches');
+
+    expect(status).toBe(200);
+    expect(body.matches).toHaveLength(1);
+    expect(body.matches[0].id).toBe('m1');
+  });
+
+  it('excludes matches the target player was not part of', async () => {
+    // The default match is me/a2 vs b1/b2 — b2's own confirmed match, but not
+    // one a2 played in.
+    db = makeFirestore(seed({ m1: { status: 'confirmed' } }));
+    expect((await get('/users/a2/matches')).body.matches).toHaveLength(1);
+
+    db = makeFirestore(
+      seed({
+        m1: { teamA: ['me', 'x9'], teamB: ['b1', 'b2'], players: ['me', 'x9', 'b1', 'b2'], status: 'confirmed' },
+      }),
+    );
+    expect((await get('/users/a2/matches')).body.matches).toEqual([]);
+  });
+
+  it('excludes still-pending matches, same as /matches/recent', async () => {
+    db = makeFirestore(seed({ m1: { status: 'pending' } }));
+    expect((await get('/users/me/matches')).body.matches).toEqual([]);
+  });
+
+  it('honours a limit', async () => {
+    db = makeFirestore(
+      seed({
+        a: { status: 'confirmed', playedAt: '2026-07-20T00:00:00.000Z' },
+        b: { status: 'confirmed', playedAt: '2026-07-19T00:00:00.000Z' },
+        c: { status: 'confirmed', playedAt: '2026-07-18T00:00:00.000Z' },
+      }),
+    );
+
+    const { body } = await get('/users/me/matches?limit=2');
+    expect(body.matches.map((m) => m.id)).toEqual(['a', 'b']);
+  });
+
+  it('never exposes rating internals', async () => {
+    db = makeFirestore(seed({ m1: { status: 'confirmed' } }));
+    const raw = JSON.stringify((await get('/users/me/matches')).body);
+    expect(raw).not.toMatch(/ratingDeltas|"value"|"rd"|"sigma"|multipliers/);
+  });
+
+  it('404s an unknown player', async () => {
+    expect((await get('/users/ghost/matches')).status).toBe(404);
+  });
+
+  it('401s without a token', async () => {
+    expect((await get('/users/me/matches', { token: null })).status).toBe(401);
+  });
+});

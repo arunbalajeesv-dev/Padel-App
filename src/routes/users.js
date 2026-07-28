@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { requireVerifiedToken, requireAdmin } from '../middleware/auth.js';
 import { getConfig } from '../services/configService.js';
 import * as users from '../services/usersService.js';
+import { listRecentForPlayer } from '../services/matchesService.js';
 
 /**
  * Signup only. Mounted ABOVE the blanket requireAuth, because the caller by
@@ -155,6 +156,50 @@ usersRouter.get('/users/search', async (req, res, next) => {
 
     // Public view: name, area, ratingDisplay. Never phone, never rating state.
     return res.json({ results: found.map((u) => users.toPublicView(u, config)) });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/**
+ * Another player's profile — reached from the leaderboard (or search, later).
+ * Registered AFTER /users/me and /users/search so Express does not match
+ * `:id` = "me" or "search". Any signed-in player may look up any other: this
+ * is the same trust level as the leaderboard and search results, just a
+ * richer view once a player has actually been picked out.
+ */
+usersRouter.get('/users/:id', async (req, res, next) => {
+  try {
+    const target = await users.findById(req.params.id);
+    if (!target) {
+      return res.status(404).json({ error: 'Not Found', reason: 'no such user' });
+    }
+
+    const config = await getConfig();
+    return res.json(users.toPlayerView(target, config));
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/**
+ * Another player's recent RATED matches — the same shape /matches/recent
+ * returns for the caller, scoped to `:id` instead of `req.uid`.
+ * `listRecentForPlayer` is already viewer-agnostic (it takes a uid and needs
+ * nothing else about who is asking), so this reuses it rather than
+ * duplicating the query.
+ */
+usersRouter.get('/users/:id/matches', async (req, res, next) => {
+  try {
+    const target = await users.findById(req.params.id);
+    if (!target) {
+      return res.status(404).json({ error: 'Not Found', reason: 'no such user' });
+    }
+
+    const raw = Number(req.query.limit);
+    const limit = Number.isInteger(raw) && raw > 0 && raw <= 50 ? raw : 10;
+
+    return res.json(await listRecentForPlayer(req.params.id, { limit }));
   } catch (err) {
     return next(err);
   }
