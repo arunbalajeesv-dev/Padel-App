@@ -1455,3 +1455,97 @@ body {
   background-size: 400% 100%;
   animation: shimmer 1.4s ease infinite;
 }
+
+/* --- Dispute Match (disputematch.html) ------------------------------------ */
+
+.match-card-compact {
+  border-color: #d0d0d0;
+  border-left: 4px solid #d0d0d0;
+  background: #fafafa;
+}
+
+.dispute-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.radio-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.radio-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 0 16px;
+  border: none;
+  border-bottom: 1px solid #eee;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.radio-item:last-child {
+  border-bottom: none;
+}
+
+.radio-item-active {
+  background: #f4f7ff;
+}
+
+.radio-circle {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid #999;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.radio-item-active .radio-circle {
+  border-color: #222;
+}
+
+.radio-item-active .radio-circle::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: #222;
+}
+
+.radio-label {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.dispute-textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: 12px 16px;
+  border: 1px solid #aaa;
+  border-radius: 8px;
+  font-size: 15px;
+  font-family: inherit;
+  background: #f9f9f9;
+  resize: vertical;
+}
+
+/* Post-dispute confirmation on Home. The disputed match itself will not
+   reappear anywhere on this screen — see DisputeMatch's header note — so this
+   flash IS the only acknowledgement the player gets. */
+.dispute-flash {
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: #fff8e6;
+  border: 1px solid #f0d68a;
+  color: #6b5200;
+  font-size: 13px;
+  line-height: 1.4;
+}

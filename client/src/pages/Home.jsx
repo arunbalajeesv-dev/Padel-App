@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 import { useAuth } from '../auth/authContext.js';
 import { getPendingMatches, getRecentMatches, ApiError } from '../api/index.js';
@@ -19,10 +19,26 @@ const COLD_START_MS = 4000;
  */
 export default function Home() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { profile } = useAuth();
 
   const [lists, setLists] = useState({ status: 'loading', pending: null, recent: null, error: null });
   const [coldStart, setColdStart] = useState(false);
+
+  // A one-time flash from DisputeMatch. The disputed match itself will not
+  // appear anywhere on this screen — disputing a pending match moves its status
+  // to `disputed`, which no list here returns (see DisputeMatch's header note).
+  // So the confirmation the player gets IS this message; nothing else marks it.
+  const [disputeFlash, setDisputeFlash] = useState(Boolean(location.state?.disputedMatch));
+  useEffect(() => {
+    if (!disputeFlash) return undefined;
+    // Clear the router state so a refresh or back-nav doesn't re-show it, and
+    // auto-dismiss so it does not linger indefinitely.
+    window.history.replaceState({}, '');
+    const timer = setTimeout(() => setDisputeFlash(false), 6000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -67,6 +83,13 @@ export default function Home() {
           <span className="bell-icon" aria-hidden="true" />
         </button>
       </header>
+
+      {disputeFlash && (
+        <div className="dispute-flash" role="status">
+          Match flagged for review. It won't affect anyone's rating unless an
+          admin confirms the issue.
+        </div>
+      )}
 
       {/* 2. Rating card */}
       <div className="rating-card">

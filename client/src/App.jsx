@@ -5,6 +5,7 @@ import Placeholder from './pages/Placeholder.jsx';
 import Home from './pages/Home.jsx';
 import LogMatch from './pages/log/LogMatch.jsx';
 import ConfirmMatch from './pages/ConfirmMatch.jsx';
+import DisputeMatch from './pages/DisputeMatch.jsx';
 import Leaderboard from './pages/Leaderboard.jsx';
 import ProfileSetup from './pages/ProfileSetup.jsx';
 import { AuthProvider } from './auth/AuthProvider.jsx';
@@ -60,12 +61,20 @@ export default function App() {
             />
           </Route>
 
-          {/* A focused sub-screen: its own back button, no tab bar. */}
+          {/* Focused sub-screens: their own back button, no tab bar. */}
           <Route
             path="/matches/:id/confirm"
             element={
               <RequireAuth>
                 <ConfirmMatch />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/matches/:id/dispute"
+            element={
+              <RequireAuth>
+                <DisputeMatch />
               </RequireAuth>
             }
           />
