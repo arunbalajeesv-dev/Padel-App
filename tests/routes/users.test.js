@@ -265,8 +265,12 @@ describe('POST /users — the signup bootstrap', () => {
       body: { name: 'Newbie', gender: 'F' },
     });
 
+    // isAdmin is deliberately absent from this list — toSelfView now exposes a
+    // player's OWN admin flag (see usersService.js), and every fresh signup
+    // legitimately has one (isAdmin: false).
     const json = JSON.stringify(body);
-    expect(json).not.toMatch(/"value"|"sigma"|"trustScore"|"isAdmin"|"rating"/);
+    expect(json).not.toMatch(/"value"|"sigma"|"trustScore"|"rating"/);
+    expect(body.isAdmin).toBe(false);
     expect(body.ratingDisplay).toBeCloseTo(2.333, 2);
   });
 });

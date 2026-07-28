@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Padel Chennai — Admin</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="topbar">
+        <h1>Padel Chennai — Admin</h1>
+        <button id="signOutBtn" class="btn-link" hidden type="button">Sign out</button>
+      </header>
+
+      <!-- Sign-in: same phone OTP flow as the player app, since the admin API
+           is gated by a real Firebase ID token — there is no separate login. -->
+      <section id="signInView" class="panel">
+        <div id="phoneStep">
+          <label class="field-label" for="phoneInput">Phone number</label>
+          <input id="phoneInput" class="field" type="tel" inputmode="tel" value="+91" placeholder="+91 98765 43210" />
+          <button id="sendCodeBtn" class="btn-primary" type="button">Send code</button>
+        </div>
+        <div id="codeStep" hidden>
+          <label class="field-label" for="codeInput">6-digit code</label>
+          <input id="codeInput" class="field" type="text" inputmode="numeric" maxlength="6" placeholder="123456" />
+          <button id="verifyCodeBtn" class="btn-primary" type="button">Verify</button>
+          <button id="restartBtn" class="btn-link" type="button">Use a different number</button>
+        </div>
+        <p id="signInError" class="error" role="alert" hidden></p>
+        <div id="recaptcha-container"></div>
+      </section>
+
+      <section id="notAdminView" class="panel" hidden>
+        <p>This account is not an admin.</p>
+      </section>
+
+      <section id="dashboardView" hidden>
+        <nav class="tabs" aria-label="Admin sections">
+          <button class="tab-btn" data-tab="stats" type="button">Stats</button>
+          <button class="tab-btn" data-tab="disputes" type="button">
+            Disputes <span id="disputeBadge" class="badge" hidden></span>
+          </button>
+          <button class="tab-btn" data-tab="alerts" type="button">Weekly-gain alerts</button>
+        </nav>
+
+        <section id="statsTab" class="tab-panel">
+          <div id="statsContent">Loading…</div>
+        </section>
+
+        <section id="disputesTab" class="tab-panel" hidden>
+          <div id="disputesContent">Loading…</div>
+        </section>
+
+        <section id="alertsTab" class="tab-panel" hidden>
+          <div id="alertsContent">Loading…</div>
+        </section>
+      </section>
+    </div>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

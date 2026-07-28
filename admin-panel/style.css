@@ -1,0 +1,344 @@
+/*
+ * Deliberately plain — this is an internal tool for 1-2 admins, not a
+ * product screen. Reuses the app's navy/gold brand colours for continuity,
+ * nothing else.
+ */
+
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  --navy: #12233d;
+  --navy-deep: #0c1830;
+  --gold: #c9a24c;
+  --border: #d8dce2;
+  --bg: #f4f5f7;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: #222;
+}
+
+#app {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.topbar h1 {
+  font-size: 20px;
+  margin: 0;
+}
+
+.panel {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 24px;
+  max-width: 360px;
+}
+
+.field-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+  margin-bottom: 6px;
+}
+
+.field {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid #aaa;
+  border-radius: 8px;
+  font-size: 15px;
+  margin-bottom: 12px;
+}
+
+.btn-primary {
+  background: var(--navy);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  min-height: 44px;
+  width: 100%;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-primary:disabled {
+  background: #999;
+  cursor: default;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--navy);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 8px 0;
+}
+
+.error {
+  margin-top: 12px;
+  color: #900;
+  font-size: 13px;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #666;
+  cursor: pointer;
+}
+
+.tab-btn.active {
+  color: var(--navy);
+  border-bottom-color: var(--navy);
+}
+
+.badge {
+  display: inline-block;
+  background: #c0392b;
+  color: #fff;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 7px;
+  margin-left: 4px;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: var(--navy-deep);
+  color: #fff;
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.stat-value {
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--gold);
+  margin-top: 4px;
+}
+
+.histogram {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 140px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+}
+
+.histogram-bar {
+  flex: 1;
+  background: var(--navy);
+  border-radius: 3px 3px 0 0;
+  min-height: 2px;
+  position: relative;
+}
+
+.histogram-bar[data-count]::after {
+  content: attr(data-count);
+  position: absolute;
+  top: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  color: #555;
+}
+
+.histogram-labels {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.histogram-labels span {
+  flex: 1;
+  text-align: center;
+  font-size: 10px;
+  color: #888;
+}
+
+.card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.card-top {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #777;
+  margin-bottom: 8px;
+}
+
+.card-teams {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.card-reason {
+  font-size: 14px;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.card-meta {
+  font-size: 12px;
+  color: #777;
+  margin-bottom: 12px;
+}
+
+.tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #eee;
+  color: #555;
+}
+
+.tag-review {
+  background: #fdecc8;
+  color: #92400e;
+}
+
+.resolve-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.resolve-form textarea {
+  min-height: 56px;
+  padding: 8px;
+  border: 1px solid #aaa;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.resolve-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-small {
+  flex: 1;
+  min-height: 36px;
+  border-radius: 6px;
+  border: 1px solid var(--navy);
+  background: #fff;
+  color: var(--navy);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-small:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.btn-small-danger {
+  border-color: #c0392b;
+  color: #c0392b;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+th, td {
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+}
+
+th {
+  background: var(--bg);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #666;
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+.empty-note {
+  font-size: 13px;
+  color: #777;
+  padding: 16px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  text-align: center;
+}

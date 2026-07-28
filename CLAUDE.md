@@ -809,6 +809,61 @@ week worth a human glance, and firing on legitimate play costs only that glance
 offsets a gain, or a ring could interleave real losses to mask farmed wins.
 Configurable; tune against real data.
 
+### The admin panel UI is a separate hand-rolled app, not part of the React client
+
+**`admin-panel/` at the repo root** — plain HTML/CSS/JS, no build step, no
+framework. Served as static files by the same Express app the API runs on
+(`src/app.js`), at `/admin-panel`, entirely separate from the React client's
+Vercel deployment. Reachable at `<render-url>/admin-panel`.
+
+**Why not add it to the React client:** it is a different audience (1-2
+admins, not players) with a different deploy story. Keeping it out of the
+client means no Vercel deploy is needed to ship an admin fix, and no admin
+code ships in the player bundle.
+
+**Auth is the SAME phone-OTP → Firebase ID token flow, driven by hand.** The
+admin API is gated by `requireAdmin`, which verifies a real Firebase token
+server-side — there is no separate admin login mechanism, and this page does
+not invent one. It signs in via the Firebase Auth SDK directly (loaded from
+the `gstatic.com` CDN, since there is no bundler here), gets an ID token, and
+sends it as a bearer header on every `/admin/*` call, exactly like the React
+client does.
+
+**`toSelfView` now exposes `isAdmin`.** It did not before — there was no
+consumer, and a stray leak of "am I admin" was never a security concern (the
+real gate is server-side `requireAdmin`, checked on every request regardless
+of what the client believes). The admin panel calls `GET /users/me` after
+sign-in and checks `isAdmin` before showing anything. **It must still never
+appear in `toPublicView`/`toPlayerView`** — seeing *who else* is an admin is a
+real leak (a map of who to target); seeing your own flag is not.
+
+**`/admin-panel`'s static files are served UNAUTHENTICATED, before the blanket
+`requireAuth`.** This is not a gap: the HTML/JS/CSS themselves carry no data,
+same as the React client's bundle is publicly fetchable on Vercel with no
+token. The token gates the *data* — every `/admin/*` call the page's own JS
+makes — never the page shell itself.
+
+**Helmet's CSP is relaxed, but ONLY for `/admin-panel`.** The default policy
+(`script-src 'self'`, no `connect-src` override) blocks Firebase Auth outright:
+the SDK loads from `gstatic.com`, phone sign-in calls
+`identitytoolkit.googleapis.com` / `securetoken.googleapis.com`, and the
+invisible reCAPTCHA runs in a `google.com`/`recaptcha.net` iframe. `src/app.js`
+picks between a strict `helmet()` and a relaxed one per-request based on
+`req.path`, rather than loosening the policy app-wide — the rest of the JSON
+API keeps the strict default untouched.
+
+**Scope so far — Tier 1 only:** Disputes (list + Dismiss/Void), Weekly-gain
+alerts, and the stats dashboard. `GET /admin/disputes` was extended to return
+`{ disputes, players }` — a uid-to-name map (via `matchesService.resolveNames`,
+now exported for this) — so the panel never has to render a raw uid.
+
+**Not built into the panel yet:** anchor management, invite-code CRUD, court
+creation. All three already have working, tested API routes
+(`POST /admin/anchors`, the invite-codes CRUD, `POST /admin/courts`) — the gap
+is UI only. Invite codes specifically are lower priority: nothing in signup
+consumes them yet, so a management screen would gate a feature that does not
+functionally exist.
+
 ---
 
 ## Inactivity Decay

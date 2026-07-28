@@ -46,7 +46,13 @@ const USER = {
 // `value` is the stored rating scalar; `mu`/`phi` are internal Glicko names that
 // never touch storage but are guarded anyway, so a regression that dumped engine
 // internals onto a view would fail here.
-const FORBIDDEN = ['value', 'mu', 'phi', 'sigma', 'rd', 'trustScore', 'rating', 'isAdmin'];
+//
+// `isAdmin` is deliberately NOT in this shared list: toSelfView now exposes it
+// (a player's OWN admin flag is not a leak — see the comment on toSelfView),
+// so this list only covers what must stay hidden from EVERY view. toPublicView
+// and toPlayerView each pin their own exact key set below, which already
+// proves isAdmin is absent from those without needing it here too.
+const FORBIDDEN = ['value', 'mu', 'phi', 'sigma', 'rd', 'trustScore', 'rating'];
 
 function assertNoLeak(payload) {
   const json = JSON.stringify(payload);
@@ -71,8 +77,16 @@ describe('toSelfView', () => {
     expect(toSelfView({ ...USER, trustScore: 87 }, CONFIG).trustScore).toBeUndefined();
   });
 
-  it('never leaks isAdmin', () => {
-    expect(toSelfView(USER, CONFIG).isAdmin).toBeUndefined();
+  it('exposes isAdmin — a player\'s own admin flag, for the admin panel entry point', () => {
+    expect(toSelfView(USER, CONFIG).isAdmin).toBe(true);
+    expect(toSelfView({ ...USER, isAdmin: false }, CONFIG).isAdmin).toBe(false);
+  });
+
+  it('coerces isAdmin to a strict boolean, same as isAnchor', () => {
+    // Mirrors isAnchor's `=== true` treatment: a stray non-boolean value on the
+    // document must never be echoed back as-is.
+    expect(toSelfView({ ...USER, isAdmin: 'yes' }, CONFIG).isAdmin).toBe(false);
+    expect(toSelfView({ ...USER, isAdmin: undefined }, CONFIG).isAdmin).toBe(false);
   });
 
   describe('placement countdown — computed server-side, RD never exposed', () => {
