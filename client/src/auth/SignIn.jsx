@@ -3,6 +3,7 @@ import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
 
 import { auth } from './firebase.js';
 import { describeAuthError } from './authErrors.js';
+import logo from '../assets/logo.png';
 
 /**
  * Phone OTP sign-in: number → SMS code → verified.
@@ -106,6 +107,8 @@ export default function SignIn() {
 
   return (
     <section className="page auth-page">
+      <img className="auth-logo" src={logo} alt="Padel Chennai Community" />
+
       <h1 className="page-title">
         {step === STEP.PHONE ? 'Sign in' : 'Enter the code'}
       </h1>

@@ -121,6 +121,14 @@ body {
 
 /* --- Auth / forms --------------------------------------------------------- */
 
+.auth-logo {
+  display: block;
+  width: 96px;
+  height: auto;
+  margin: 8px auto 24px;
+  border-radius: 18px;
+}
+
 .auth-form {
   display: flex;
   flex-direction: column;
@@ -187,6 +195,49 @@ body {
   padding: 40px 20px;
   text-align: center;
   color: #777;
+}
+
+/* --- Splash ---------------------------------------------------------------- */
+/*
+ * Brand colours, taken from the Padel Chennai Community logo (deep navy with a
+ * gold dot texture). Scoped to splash/auth for now rather than promoted to
+ * :root — this file is shell styling, not the design system (see the note at
+ * the top), and nothing else has adopted this palette yet.
+ */
+
+.splash {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  min-height: 100vh;
+  background: radial-gradient(circle at 50% 35%, #1b3252 0%, #0c1830 75%);
+  color: #fff;
+}
+
+.splash-logo {
+  width: 180px;
+  height: auto;
+}
+
+.splash .spinner {
+  border-color: rgba(255, 255, 255, 0.25);
+  border-top-color: #c9a24c;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* --- Profile setup (onboarding.html Frame 4) ------------------------------ */
@@ -1548,4 +1599,123 @@ body {
   color: #6b5200;
   font-size: 13px;
   line-height: 1.4;
+}
+
+/* --- Profile (Profile.jsx) -------------------------------------------------- */
+
+.profile-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.avatar-large {
+  width: 64px;
+  height: 64px;
+  font-size: 22px;
+}
+
+.profile-name {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.profile-meta {
+  margin-top: 2px;
+  font-size: 13px;
+  color: #777;
+}
+
+.profile-stats {
+  display: flex;
+  gap: 12px;
+}
+
+.profile-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: #1c1c1c;
+  color: #fff;
+  border-radius: 12px;
+  padding: 16px 12px;
+  text-align: center;
+}
+
+.profile-stat-value {
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.profile-stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #bbb;
+}
+
+.profile-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.profile-section-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.profile-detail-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.profile-detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #eee;
+}
+
+.profile-detail-row:last-child {
+  border-bottom: none;
+}
+
+.profile-detail-row dt {
+  font-size: 13px;
+  font-weight: 700;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.profile-detail-row dd {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.profile-edit-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.profile-signout {
+  align-self: center;
+  margin-top: 4px;
+  color: #900;
 }

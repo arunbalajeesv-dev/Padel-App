@@ -2,6 +2,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 
 import { useAuth } from './authContext.js';
 import { STATUS } from './authStatus.js';
+import Splash from '../pages/Splash.jsx';
 
 /**
  * The single place that decides what an authenticated user is allowed to see.
@@ -20,7 +21,7 @@ export default function RequireAuth({ children }) {
   const location = useLocation();
 
   if (status === STATUS.LOADING) {
-    return <div className="page page-loading">Loading…</div>;
+    return <Splash />;
   }
 
   if (status === STATUS.SIGNED_OUT) {
