@@ -137,6 +137,21 @@ describe('GET /matches/pending', () => {
   it('401s without a token', async () => {
     expect((await get('/matches/pending', { token: null })).status).toBe(401);
   });
+
+  it('includes a disputed match, so it never simply disappears while awaiting an admin', async () => {
+    db = makeFirestore(seed({ m1: { status: 'disputed', confirmedBy: ['b1'] } }));
+
+    const { status, body } = await get('/matches/pending');
+
+    expect(status).toBe(200);
+    expect(body.matches).toHaveLength(1);
+    expect(body.matches[0].status).toBe('disputed');
+  });
+
+  it('excludes a rejected match — that outcome lives in recent activity, not here', async () => {
+    db = makeFirestore(seed({ m1: { status: 'rejected', confirmedBy: ['b1'] } }));
+    expect((await get('/matches/pending')).body.matches).toEqual([]);
+  });
 });
 
 describe('GET /matches/:id', () => {
@@ -219,6 +234,21 @@ describe('GET /matches/recent', () => {
 
   it('is empty when the player has no rated matches', async () => {
     expect((await get('/matches/recent')).body.matches).toEqual([]);
+  });
+
+  it('includes a rejected match — a cancelled dispute is a visible outcome, not a silent vanish', async () => {
+    db = makeFirestore(
+      seed({
+        rated: { status: 'confirmed', playedAt: '2026-07-20T10:00:00.000Z' },
+        cancelled: { status: 'rejected', playedAt: '2026-07-19T10:00:00.000Z' },
+        stillDisputed: { status: 'disputed', playedAt: '2026-07-18T10:00:00.000Z' },
+      }),
+    );
+
+    const { body } = await get('/matches/recent');
+
+    expect(body.matches.map((m) => m.id)).toEqual(['rated', 'cancelled']);
+    expect(body.matches.find((m) => m.id === 'cancelled').status).toBe('rejected');
   });
 });
 

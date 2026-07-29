@@ -8,8 +8,17 @@
  * admin login mechanism, and this page does not invent one — it just drives
  * the same sign-in by hand, without React.
  *
- * Tier 1 only: Disputes, Weekly-gain alerts, Stats. Anchors/invite-codes/court
- * creation are not built here yet — see the conversation this was scoped in.
+ * Tier 1 only: Disputes (+ history), Weekly-gain alerts, Stats.
+ * Anchors/invite-codes/court creation are not built here yet — see the
+ * conversation this was scoped in.
+ *
+ * A dispute can only ever be raised against a match that was never rated —
+ * confirming a match closes the door on disputing it (see
+ * src/services/disputesService.js). So resolving one has exactly two clean
+ * outcomes, never a "ratings already applied" case to worry about:
+ *   approve — no wrongdoing. Match goes back to `pending`; normal
+ *             confirmation proceeds as if never disputed.
+ *   cancel  — wrongdoing found. Match is rejected permanently.
  */
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js';
 import {
@@ -191,6 +200,7 @@ let dashboardInitialised = false;
 function initDashboard() {
   loadStats();
   loadDisputes();
+  loadHistory();
   loadAlerts();
 
   if (dashboardInitialised) return;
@@ -291,15 +301,12 @@ function renderDisputeCard(dispute, players) {
   const teamA = m ? m.teamA.map((uid) => playerName(players, uid)).join(' / ') : '—';
   const teamB = m ? m.teamB.map((uid) => playerName(players, uid)).join(' / ') : '—';
   const score = m?.sets?.map((s) => `${s.teamA}-${s.teamB}`).join(', ') ?? '';
-  const statusTag = dispute.ratingsApplied
-    ? '<span class="tag tag-review">Ratings already applied</span>'
-    : '<span class="tag">Not yet rated</span>';
 
   return `
     <article class="card" data-dispute-id="${escapeHtml(dispute.id)}">
       <div class="card-top">
         <span>${m ? formatDate(m.playedAt) : ''}</span>
-        <span>${statusTag}</span>
+        <span class="tag">Not yet rated</span>
       </div>
       <div class="card-teams">
         <span>${escapeHtml(teamA)}</span>
@@ -316,8 +323,8 @@ function renderDisputeCard(dispute, players) {
       <form class="resolve-form" data-resolve-form>
         <textarea placeholder="Note (required, min 5 characters) — what did you decide and why?" required minlength="5"></textarea>
         <div class="resolve-actions">
-          <button type="button" class="btn-small" data-action="dismiss">Dismiss</button>
-          <button type="button" class="btn-small btn-small-danger" data-action="void">Void match</button>
+          <button type="button" class="btn-small" data-action="approve">Approve — match stands</button>
+          <button type="button" class="btn-small btn-small-danger" data-action="cancel">Cancel match</button>
         </div>
         <p class="error" hidden></p>
       </form>
@@ -347,8 +354,7 @@ function wireResolveForms() {
             method: 'POST',
             body: { action: btn.dataset.action, note },
           });
-          await loadDisputes();
-          await loadStats();
+          await Promise.all([loadDisputes(), loadHistory(), loadStats()]);
         } catch (err) {
           showError(errorEl, err.message || 'Could not resolve this dispute.');
           buttons.forEach((b) => (b.disabled = false));
@@ -356,6 +362,54 @@ function wireResolveForms() {
       });
     });
   });
+}
+
+// --- Dispute history -------------------------------------------------------
+
+async function loadHistory() {
+  const el = $('historyContent');
+  try {
+    const { disputes, players } = await apiFetch('/admin/disputes/history');
+    el.innerHTML = renderHistory(disputes, players);
+  } catch (err) {
+    el.innerHTML = `<p class="error">Could not load dispute history: ${escapeHtml(err.message)}</p>`;
+  }
+}
+
+function renderHistory(disputes, players) {
+  if (disputes.length === 0) {
+    return '<p class="empty-note">No resolved disputes yet.</p>';
+  }
+
+  const rows = disputes
+    .map((d) => {
+      const m = d.match;
+      const teams = m
+        ? `${m.teamA.map((uid) => playerName(players, uid)).join('/')} vs ${m.teamB.map((uid) => playerName(players, uid)).join('/')}`
+        : '—';
+      const outcomeTag =
+        d.resolution === 'approve' ? '<span class="tag">Approved</span>' : '<span class="tag tag-review">Cancelled</span>';
+
+      return `
+        <tr>
+          <td>${formatDate(d.resolvedAt ?? d.createdAt)}</td>
+          <td>${escapeHtml(teams)}</td>
+          <td>${escapeHtml(playerName(players, d.raisedBy))}</td>
+          <td>${outcomeTag}</td>
+          <td>${escapeHtml(d.resolutionNote ?? '')}</td>
+        </tr>
+      `;
+    })
+    .join('');
+
+  return `
+    <table>
+      <thead>
+        <tr><th>Resolved</th><th>Match</th><th>Raised by</th><th>Decision</th><th>Note</th></tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
 }
 
 // --- Weekly-gain alerts ---------------------------------------------------

@@ -693,46 +693,80 @@ is the obvious misreading.
 ## Disputes
 
 `POST /matches/:id/dispute` takes a `reason` and an optional `evidenceUrl`, and
-records a `disputes` document. What it does to the match **depends entirely on
-whether the match has already been rated** — the two cases are opposites, not
-variations. Implemented in `disputesService.js`.
+records a `disputes` document. Implemented in `disputesService.js`.
 
-### A disputed match must never affect ratings
+### A dispute can only be raised against a `pending` match
 
-| Match state when disputed | What happens | Dispute status |
-|---|---|---|
-| **pending** (never rated) | status → `disputed`; `confirmationService` only rates a `pending` match, so it can now never be rated | `open` |
-| **confirmed** (already rated) | **flagged for admin review — nothing is reversed** | `needsAdminReview` |
+**Once a match is `confirmed`, it can never be disputed — the request 409s.**
+This is a settled design choice, not a limitation to work around.
 
-### A rated match is flagged, never silently reversed
+Both-team confirmation is already defined, elsewhere in this document, as the
+system's trust checkpoint — CLAUDE.md's Anti-Abuse Rules calls it *"the
+load-bearing"* anti-collusion defence. Closing the dispute window at the same
+point extends that same idea one step further: the moment each team has
+confirmed, the result is final, by the same logic that made confirmation mean
+something in the first place.
 
-Reversing an applied rating has **knock-on effects on every rating computed after
-it**. Each of the four players has since played matches whose deltas were
-computed against the rating this match produced; undoing it correctly means
-replaying everything downstream, and undoing it naively means subtracting a delta
-from a rating it is no longer part of. **That is a decision for a human, not an
-automatic side effect of a player tapping "dispute".**
+**The alternative was tried in reasoning and rejected.** Allowing a dispute
+after ratings are already applied means one of two bad outcomes: reverse the
+rating (which cascades into every match those four players played afterward,
+and every player downstream of *them* — a full, correct replay is a
+fundamentally different and much larger engineering problem than anything else
+in this system), or leave the rating standing with an open dispute that has no
+clean resolution (the previous design: a `needsAdminReview` status and a
+`ratingReversalRequiredManually` flag that no code path ever acted on). Closing
+the door at confirmation avoids both by construction — nothing is ever
+disputed once it has already moved a rating.
 
-**The match status stays `confirmed`, which looks wrong and is not.** Both
-`M_repeat` and `hasPlayedTogether` query `status == confirmed`. Flipping a rated
-match to `disputed` would silently drop it out of those counts, so future matches
-between these players would be scored as **more novel than they are** — the past
-deltas would stay applied while the history explaining them quietly vanished.
-That is a worse and more invisible corruption than the dispute itself. The rated
-match therefore keeps its status and gains a `hasOpenDispute` flag; the admin
-tools act on the flag.
+**One status check is the only guard needed**, and it covers three cases at
+once: a match's status and "does it have a live dispute" are always in sync,
+because every path that opens a dispute sets status to `disputed` in the same
+transaction, and every path that resolves one moves it to `pending` or
+`rejected` in the same transaction. So `raiseDispute` rejects on
+`status !== pending` full stop — covering already-confirmed, already-disputed,
+and already-rejected with one check, not three.
 
-### Admin resolution
+### The disputed match stays visible — to the player, and to admin
+
+**A disputed match is never a silent disappearance.** `listPendingForPlayer`
+includes `disputed` matches specifically so a player who raised (or is party
+to) a dispute keeps seeing it — rendered inert (no confirm, no dispute-again),
+labelled "Under review by an admin," in the same Home section a pending match
+lives in. See `client/CLAUDE.md` rule 4 — the same "pending must never look
+finished" principle extends to "disputed must never look gone."
+
+### Admin resolution — two clean outcomes, because there is only one case
 
 `POST /admin/disputes/:id/resolve` records the human decision and closes the
-dispute. It takes `action` (`dismiss` | `void`) and a `note`.
+dispute. It takes `action` (`approve` | `cancel`) and a `note`.
 
-- **`dismiss`** — no wrongdoing; clear the flag, match stands.
-- **`void`** — wrongdoing found. On a **never-rated** match it sets the status to
-  `rejected` so it stays unratable. On a **rated** match it does **NOT** reverse
-  the deltas — the response returns `ratingReversalRequiredManually: true`,
-  because an automatic reversal cascades into every later rating (above). The
-  admin gets a flag and a truthful signal, not a silent unwind.
+- **`approve`** — no wrongdoing found. The match is restored to `pending`,
+  exactly as if the dispute had never been raised, and re-enters normal
+  confirmation — it still needs a real confirmation from each team before it
+  can ever rate. Admin approval is never a substitute confirmation; it only
+  removes the block. This is why the confirmation rule (one per team, never
+  admin, never all four) stays the single path into the rating engine.
+- **`cancel`** — wrongdoing found. The match is rejected permanently
+  (`status: rejected`) and can never be confirmed.
+
+Neither action ever touches a rating, because — per the rule above — a
+dispute can only exist against a match where no rating was ever applied.
+
+### The player sees the outcome either way
+
+- **Approved** → the match reappears in the ordinary pending flow (it is,
+  again, just a pending match) and can be confirmed like any other.
+- **Cancelled** → the match moves into recent activity, tagged "Cancelled"
+  rather than "Rated" — `listRecentForPlayer` includes `rejected` matches for
+  exactly this reason. The outcome is a real, visible fact, not a status the
+  player has to go ask an admin about.
+
+### The admin panel keeps a history, not just a live queue
+
+`GET /admin/disputes` is the live queue (open disputes only).
+`GET /admin/disputes/history` lists resolved ones — resolution, resolution
+note, who resolved it, when — so a past decision is auditable, not only the
+in-flight state.
 
 ---
 
@@ -778,7 +812,8 @@ should. `tests/routes/health.test.js` pins every cell of this table.
 | Route | Purpose |
 |---|---|
 | `GET /admin/disputes` | Live dispute queue, each joined to its match for context |
-| `POST /admin/disputes/:id/resolve` | Dismiss or void — see *Disputes* |
+| `GET /admin/disputes/history` | Resolved disputes — resolution, note, who, when |
+| `POST /admin/disputes/:id/resolve` | Approve or cancel — see *Disputes* |
 | `POST /admin/anchors` | Set/unset `isAnchor`. Server-owned, one writer (`usersService.setAnchor`), never client-settable |
 | `POST /admin/courts` | Create a court (same service as the public admin-only `POST /courts`) |
 | `GET/POST/PATCH/DELETE /admin/invite-codes[/:id]` | Invite-code CRUD — `code`, `phase`, `active` |
@@ -937,8 +972,17 @@ index**:
 
 - Confirmation's *pair-together* query: `pairs array-contains X` + `status ==
   confirmed`, `limit 1` (selects `synergy` — *have these two partnered before?*).
-- Disputes' *live-guard* query: `matchId == X` + `status in […]`, `limit 1`
-  (reject a second dispute while one is live).
+- `listPendingForPlayer` / `listRecentForPlayer`: `players array-contains uid` +
+  `status in […]` — the Home lists a player's pending-or-disputed and
+  confirmed-or-rejected matches. See *Disputes*.
+
+> **A third query used to live here: disputes' "is there already a live
+> dispute on this match" guard (`matchId == X` + `status in […]`).** It is
+> gone, not just its index note — `raiseDispute` no longer runs it at all.
+> Once disputing was restricted to `pending` matches (see *Disputes*), a
+> match's status and "does it have a live dispute" became always in sync, so
+> the single `status !== pending` check already covers it. One less query,
+> not just one less index.
 
 **The composite indexes that ARE required** — each has a range or a cross-field
 `orderBy`, which merge-join cannot cover:

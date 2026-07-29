@@ -2,9 +2,10 @@ import { ApiError } from '../api/index.js';
 import MatchCard from './MatchCard.jsx';
 
 /**
- * A player's confirmed match history — shared between the signed-in player's
- * own Profile and another player's PlayerProfile, since both fetch the same
- * shape (getRecentMatches / getUserMatches) and render it identically.
+ * A player's resolved match history (rated + cancelled) — shared between the
+ * signed-in player's own Profile and another player's PlayerProfile, since
+ * both fetch the same shape (getRecentMatches / getUserMatches) and render it
+ * identically.
  *
  * @param {{status: 'loading'|'ready'|'error', matches?: object[],
  *   players?: object, courts?: object, error?: Error}} state
@@ -40,7 +41,7 @@ export default function PastMatches({ state }) {
   return (
     <div className="match-stack">
       {matches.map((m) => (
-        <MatchCard key={m.id} match={m} names={names} mode="rated" />
+        <MatchCard key={m.id} match={m} names={names} mode={m.status === 'rejected' ? 'rejected' : 'rated'} />
       ))}
     </div>
   );

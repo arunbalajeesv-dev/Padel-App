@@ -146,12 +146,9 @@ matchesRouter.post('/matches/:id/confirm', async (req, res, next) => {
 });
 
 /**
- * Dispute a match.
- *
- * A pending match becomes `disputed` and can never be rated. A match that was
- * already rated is FLAGGED, not reversed — the response says which happened via
- * `ratingsApplied`, because "we have blocked this" and "a human will look at
- * this" are very different promises to make to a player.
+ * Dispute a match. Only a `pending` match is eligible — see disputesService's
+ * module note for why a confirmed one is refused outright (409) rather than
+ * flagged for later review.
  */
 matchesRouter.post('/matches/:id/dispute', async (req, res, next) => {
   try {
@@ -166,20 +163,16 @@ matchesRouter.post('/matches/:id/dispute', async (req, res, next) => {
     }
     if (errors.length > 0) return badRequest(res, errors);
 
-    const { dispute, ratingsApplied } = await disputes.raiseDispute({
+    const { dispute } = await disputes.raiseDispute({
       matchId: req.params.id,
       uid: req.uid,
       body: req.body,
     });
 
-    return res.status(201).json({ ...dispute, ratingsApplied });
+    return res.status(201).json(dispute);
   } catch (err) {
     if (err?.status) {
-      return res.status(err.status).json({
-        error: err.error,
-        reason: err.reason,
-        ...(err.existingDisputeId ? { existingDisputeId: err.existingDisputeId } : {}),
-      });
+      return res.status(err.status).json({ error: err.error, reason: err.reason });
     }
     return next(err);
   }

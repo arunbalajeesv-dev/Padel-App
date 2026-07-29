@@ -44,6 +44,15 @@ adminRouter.get('/disputes', async (req, res, next) => {
   }
 });
 
+/** Resolved disputes, newest first — the admin panel's history view. */
+adminRouter.get('/disputes/history', async (req, res, next) => {
+  try {
+    return res.json(await disputes.listHistory());
+  } catch (err) {
+    return next(err);
+  }
+});
+
 adminRouter.post('/disputes/:id/resolve', async (req, res, next) => {
   try {
     const { rejected, errors } = disputes.validateResolve(req.body);

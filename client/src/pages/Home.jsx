@@ -25,10 +25,10 @@ export default function Home() {
   const [lists, setLists] = useState({ status: 'loading', pending: null, recent: null, error: null });
   const [coldStart, setColdStart] = useState(false);
 
-  // A one-time flash from DisputeMatch. The disputed match itself will not
-  // appear anywhere on this screen — disputing a pending match moves its status
-  // to `disputed`, which no list here returns (see DisputeMatch's header note).
-  // So the confirmation the player gets IS this message; nothing else marks it.
+  // A one-time flash from DisputeMatch, for immediate feedback on the submit
+  // itself. The match ALSO stays visible below, in its own "Under review"
+  // section — see PendingSection — so this is a confirmation the action
+  // worked, not the only trace that it happened.
   const [disputeFlash, setDisputeFlash] = useState(Boolean(location.state?.disputedMatch));
   useEffect(() => {
     if (!disputeFlash) return undefined;
@@ -137,10 +137,15 @@ function PendingSection({ lists, coldStart, onConfirm, onDispute }) {
 
   const names = { players: lists.pending.players, courts: lists.pending.courts };
 
-  // Split by the server's per-viewer flag: the ones this player must act on come
-  // first and loud; the ones they've already confirmed sit below as "waiting".
-  const action = matches.filter((m) => m.viewerNeedsToConfirm);
-  const waiting = matches.filter((m) => !m.viewerNeedsToConfirm);
+  // A disputed match is blocked on an admin, not on any player — that split
+  // matters more than viewerNeedsToConfirm, which is meaningless once a match
+  // is disputed (nobody can act on it either way). Split those out first, then
+  // divide the rest exactly as before: who this viewer must act on now, versus
+  // who they've already confirmed and are waiting on the other team for.
+  const disputed = matches.filter((m) => m.status === 'disputed');
+  const awaitingConfirmation = matches.filter((m) => m.status !== 'disputed');
+  const action = awaitingConfirmation.filter((m) => m.viewerNeedsToConfirm);
+  const waiting = awaitingConfirmation.filter((m) => !m.viewerNeedsToConfirm);
 
   return (
     <>
@@ -172,6 +177,17 @@ function PendingSection({ lists, coldStart, onConfirm, onDispute }) {
           </div>
         </section>
       )}
+
+      {disputed.length > 0 && (
+        <section className="home-section">
+          <h2 className="section-title">Under review</h2>
+          <div className="match-stack">
+            {disputed.map((m) => (
+              <MatchCard key={m.id} match={m} names={names} mode="disputed" />
+            ))}
+          </div>
+        </section>
+      )}
     </>
   );
 }
@@ -191,7 +207,7 @@ function RecentSection({ lists }) {
       ) : (
         <div className="match-stack">
           {matches.map((m) => (
-            <MatchCard key={m.id} match={m} names={names} mode="rated" />
+            <MatchCard key={m.id} match={m} names={names} mode={m.status === 'rejected' ? 'rejected' : 'rated'} />
           ))}
         </div>
       )}

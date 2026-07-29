@@ -205,18 +205,21 @@ describe('invite codes CRUD', () => {
 });
 
 describe('disputes queue and resolve', () => {
-  function seedDispute(over = {}) {
+  // A dispute can now ONLY exist against a match that was never rated — see
+  // disputesService's module note. So the match here is always `disputed`,
+  // never `confirmed`.
+  function seedDispute() {
     db = makeFirestore({
       ...baseDocs(),
       'matches/m1': {
         teamA: ['alice', 'x'], teamB: ['bob', 'y'], players: ['alice', 'x', 'bob', 'y'],
-        sets: [{ teamA: 6, teamB: 4 }], winner: 'A', playedAt: '2026-07-17T10:00:00.000Z',
-        status: over.matchStatus ?? 'disputed', hasOpenDispute: true,
+        sets: [{ teamA: 6, teamB: 4 }], winner: 'A', format: 'single',
+        gamesA: 6, gamesB: 4, playedAt: '2026-07-17T10:00:00.000Z',
+        status: 'disputed', confirmedBy: ['alice'],
       },
       'disputes/d1': {
         matchId: 'm1', raisedBy: 'alice', reason: 'wrong score entirely here',
-        evidenceUrl: null, status: 'open', ratingsApplied: over.ratingsApplied ?? false,
-        matchStatusAtDispute: 'pending', createdAt: '2026-07-17T11:00:00.000Z',
+        evidenceUrl: null, status: 'open', createdAt: '2026-07-17T11:00:00.000Z',
       },
     });
   }
@@ -242,57 +245,101 @@ describe('disputes queue and resolve', () => {
     expect(body.players.x).toBeUndefined();
   });
 
-  it('excludes resolved disputes from the queue', async () => {
+  it('excludes resolved disputes from the live queue', async () => {
     seedDispute();
     db.state.set('disputes/d1', { ...db.state.get('disputes/d1'), status: 'resolved' });
     expect((await get('/admin/disputes')).body.disputes).toHaveLength(0);
   });
 
-  it('dismiss clears the flag and records the decision', async () => {
+  it('approve restores the match to pending — confirmation proceeds as normal', async () => {
     seedDispute();
     const { status, body } = await post('/admin/disputes/d1/resolve', {
-      body: { action: 'dismiss', note: 'checked with both teams, fine' },
+      body: { action: 'approve', note: 'checked with both teams, fine' },
     });
 
     expect(status).toBe(200);
     expect(db.state.get('disputes/d1').status).toBe('resolved');
     expect(db.state.get('disputes/d1').resolvedBy).toBe('admin');
-    expect(db.state.get('matches/m1').hasOpenDispute).toBe(false);
-    expect(db.state.get('matches/m1').status).toBe('disputed'); // dismiss does not void
-    expect(body.ratingReversalRequiredManually).toBe(false);
+    expect(db.state.get('matches/m1').status).toBe('pending');
+    expect(db.state.get('matches/m1').confirmedBy).toEqual(['alice']); // untouched
+    expect(body.matchStatus).toBe('pending');
   });
 
-  it('void rejects a never-rated match', async () => {
-    seedDispute({ ratingsApplied: false });
-    await post('/admin/disputes/d1/resolve', {
-      body: { action: 'void', note: 'fabricated match, voided' },
-    });
-    expect(db.state.get('matches/m1').status).toBe('rejected');
-  });
+  it('an approved match can go on to be confirmed and rated normally', async () => {
+    // seedDispute's match uses 'x'/'y' as placeholder uids (fine for the
+    // name-resolution tests above, which never confirm anything) — but
+    // actually confirming requires all four to be real users.
+    seedDispute();
+    db.state.set('users/x', userDoc({ name: 'X' }));
+    db.state.set('users/y', userDoc({ name: 'Y' }));
 
-  it('void on a RATED match never reverses — it flags for manual handling', async () => {
-    seedDispute({ ratingsApplied: true, matchStatus: 'confirmed' });
-    const { body } = await post('/admin/disputes/d1/resolve', {
-      body: { action: 'void', note: 'confirmed collusion, needs manual unwind' },
-    });
+    await post('/admin/disputes/d1/resolve', { body: { action: 'approve', note: 'no issue found here' } });
 
-    // The rated match keeps its status and its deltas — reversal cascades and is manual.
+    verifyIdToken.mockImplementation(async () => ({ uid: 'bob' }));
+    const confirm = await post('/matches/m1/confirm');
+    expect(confirm.status).toBe(200);
     expect(db.state.get('matches/m1').status).toBe('confirmed');
-    expect(db.state.get('matches/m1').hasOpenDispute).toBe(false);
-    expect(body.ratingReversalRequiredManually).toBe(true);
+  });
+
+  it('cancel rejects the match permanently', async () => {
+    seedDispute();
+    const { body } = await post('/admin/disputes/d1/resolve', {
+      body: { action: 'cancel', note: 'fabricated match, cancelled' },
+    });
+
+    expect(db.state.get('matches/m1').status).toBe('rejected');
+    expect(body.matchStatus).toBe('rejected');
   });
 
   it('409s resolving an already-resolved dispute', async () => {
     seedDispute();
-    await post('/admin/disputes/d1/resolve', { body: { action: 'dismiss', note: 'all good here' } });
-    const again = await post('/admin/disputes/d1/resolve', { body: { action: 'dismiss', note: 'again now' } });
+    await post('/admin/disputes/d1/resolve', { body: { action: 'approve', note: 'all good here' } });
+    const again = await post('/admin/disputes/d1/resolve', { body: { action: 'approve', note: 'again now' } });
     expect(again.status).toBe(409);
   });
 
   it('400s a bad resolve body and 404s a missing dispute', async () => {
     seedDispute();
     expect((await post('/admin/disputes/d1/resolve', { body: { action: 'nope', note: 'valid note' } })).status).toBe(400);
-    expect((await post('/admin/disputes/ghost/resolve', { body: { action: 'dismiss', note: 'valid note' } })).status).toBe(404);
+    expect((await post('/admin/disputes/ghost/resolve', { body: { action: 'approve', note: 'valid note' } })).status).toBe(404);
+  });
+});
+
+describe('GET /admin/disputes/history', () => {
+  it('lists resolved disputes with the resolution recorded, newest first', async () => {
+    db = makeFirestore({
+      ...baseDocs(),
+      'matches/m1': {
+        teamA: ['alice', 'x'], teamB: ['bob', 'y'], players: ['alice', 'x', 'bob', 'y'],
+        sets: [{ teamA: 6, teamB: 4 }], winner: 'A', playedAt: '2026-07-17T10:00:00.000Z',
+        status: 'rejected',
+      },
+      'disputes/d1': {
+        matchId: 'm1', raisedBy: 'alice', reason: 'wrong score entirely here',
+        evidenceUrl: null, status: 'resolved', resolution: 'cancel',
+        resolutionNote: 'confirmed to be fabricated', resolvedBy: 'admin',
+        resolvedAt: '2026-07-17T12:00:00.000Z', createdAt: '2026-07-17T11:00:00.000Z',
+      },
+    });
+
+    const { status, body } = await get('/admin/disputes/history');
+
+    expect(status).toBe(200);
+    expect(body.disputes).toHaveLength(1);
+    expect(body.disputes[0].resolution).toBe('cancel');
+    expect(body.disputes[0].resolvedBy).toBe('admin');
+    expect(body.players.alice).toBe('Alice');
+  });
+
+  it('excludes still-open disputes from history', async () => {
+    db = makeFirestore({
+      ...baseDocs(),
+      'disputes/d1': {
+        matchId: 'm1', raisedBy: 'alice', reason: 'wrong score entirely here',
+        evidenceUrl: null, status: 'open', createdAt: '2026-07-17T11:00:00.000Z',
+      },
+    });
+    expect((await get('/admin/disputes/history')).body.disputes).toEqual([]);
   });
 });
 

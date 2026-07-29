@@ -102,17 +102,14 @@ describe('POST /matches/:id/dispute — a pending match is blocked', () => {
 
     expect(status).toBe(201);
     expect(body.status).toBe('open');
-    expect(body.ratingsApplied).toBe(false);
 
     expect(matchDoc().status).toBe('disputed');
-    expect(matchDoc().hasOpenDispute).toBe(true);
 
     const [dispute] = disputeDocs();
     expect(dispute.matchId).toBe('m1');
     expect(dispute.raisedBy).toBe('me');
     expect(dispute.reason).toBe(REASON);
     expect(dispute.evidenceUrl).toBe('https://example.com/photo.jpg');
-    expect(dispute.ratingsApplied).toBe(false);
   });
 
   it('makes the match unratable — confirmation is refused afterwards', async () => {
@@ -136,7 +133,7 @@ describe('POST /matches/:id/dispute — a pending match is blocked', () => {
   });
 });
 
-describe('POST /matches/:id/dispute — a rated match is flagged, never reversed', () => {
+describe('POST /matches/:id/dispute — a confirmed match can no longer be disputed', () => {
   beforeEach(() => {
     // A confirmed match whose ratings were already applied and RD already fell.
     db = makeFirestore({
@@ -152,32 +149,47 @@ describe('POST /matches/:id/dispute — a rated match is flagged, never reversed
     }
   });
 
-  it('flags for admin review and does NOT touch any rating', async () => {
+  it('409s — both-team confirmation is the trust checkpoint, and it has already passed', async () => {
     const { status, body } = await post('/matches/m1/dispute', { body: { reason: REASON } });
 
-    expect(status).toBe(201);
-    expect(body.status).toBe('needsAdminReview');
-    expect(body.ratingsApplied).toBe(true);
+    expect(status).toBe(409);
+    expect(body.reason).toMatch(/already been confirmed/);
+  });
 
-    // Ratings stand — reversing has knock-on effects on every rating computed
-    // after this match.
+  it('creates no dispute document and touches no rating', async () => {
+    await post('/matches/m1/dispute', { body: { reason: REASON } });
+
+    expect(disputeDocs()).toEqual([]);
+    expect(matchDoc().status).toBe('confirmed');
     for (const id of PLAYERS) {
       expect(db.state.get(`users/${id}`).rating.value).toBe(1540);
       expect(db.state.get(`users/${id}`).rating.rd).toBe(300);
-      expect(db.state.get(`users/${id}`).gamesPlayed).toBe(1);
     }
   });
+});
 
-  it('leaves the match status confirmed so it stays in M_repeat and pairing history', async () => {
-    // Flipping a rated match to `disputed` would silently drop it out of the
-    // status == confirmed queries, making future matches look more novel than
-    // they are while the past deltas stay applied.
+describe('POST /matches/:id/dispute — status is the single source of truth for "already disputed"', () => {
+  it('409s a second dispute while one is already open, via the SAME status check — no separate query needed', async () => {
+    // A match's status and "has a live dispute" are always in sync: opening one
+    // sets status to disputed in the same transaction. So the second attempt is
+    // rejected by the status guard, not a redundant existing-dispute lookup.
     await post('/matches/m1/dispute', { body: { reason: REASON } });
 
-    expect(matchDoc().status).toBe('confirmed');
-    expect(matchDoc().hasOpenDispute).toBe(true);
-    expect(disputeDocs()[0].ratingsApplied).toBe(true);
-    expect(disputeDocs()[0].matchStatusAtDispute).toBe('confirmed');
+    verifyIdToken.mockResolvedValue({ uid: 'a2' });
+    const { status, body } = await post('/matches/m1/dispute', { body: { reason: REASON } });
+
+    expect(status).toBe(409);
+    expect(body.reason).toMatch(/open dispute/);
+    expect(disputeDocs()).toHaveLength(1);
+  });
+
+  it('409s disputing an already-rejected match', async () => {
+    db = makeFirestore(seed({ status: 'rejected' }));
+
+    const { status, body } = await post('/matches/m1/dispute', { body: { reason: REASON } });
+
+    expect(status).toBe(409);
+    expect(body.reason).toMatch(/rejected/);
   });
 });
 
@@ -195,17 +207,6 @@ describe('POST /matches/:id/dispute — guards', () => {
 
   it('404s an unknown match', async () => {
     expect((await post('/matches/nope/dispute', { body: { reason: REASON } })).status).toBe(404);
-  });
-
-  it('409s a second dispute while one is already open', async () => {
-    await post('/matches/m1/dispute', { body: { reason: REASON } });
-
-    verifyIdToken.mockResolvedValue({ uid: 'a2' });
-    const { status, body } = await post('/matches/m1/dispute', { body: { reason: REASON } });
-
-    expect(status).toBe(409);
-    expect(body.existingDisputeId).toBeDefined();
-    expect(disputeDocs()).toHaveLength(1);
   });
 
   it.each([

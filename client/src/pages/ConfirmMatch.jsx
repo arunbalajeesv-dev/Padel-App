@@ -146,30 +146,68 @@ export default function ConfirmMatch() {
         {submitError && <SubmitError error={submitError} />}
 
         <div className="confirm-actions">
-          {alreadyConfirmed ? (
-            <p className="confirm-note">
-              You've confirmed this match. It's waiting on the other team before it
-              counts.
-            </p>
-          ) : (
-            <>
-              <button className="btn-primary" type="button" onClick={confirm} disabled={submitting}>
-                {submitting ? 'Confirming…' : 'Yes, this is correct'}
-              </button>
-              <button
-                className="btn-link"
-                type="button"
-                onClick={() => navigate(`/matches/${id}/dispute`)}
-                disabled={submitting}
-              >
-                Something's wrong — dispute
-              </button>
-            </>
-          )}
-          <p className="caption">Ratings update once both teams confirm.</p>
+          <MatchActions
+            match={match}
+            alreadyConfirmed={alreadyConfirmed}
+            submitting={submitting}
+            onConfirm={confirm}
+            onDispute={() => navigate(`/matches/${id}/dispute`)}
+          />
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * What this screen offers depends on `match.status`, not just whether THIS
+ * viewer personally confirmed — a match reaches `confirmed` once one player
+ * per team has, which can happen while the other two players (who never
+ * clicked anything themselves) still show `viewerNeedsToConfirm: true`. Without
+ * checking status first, those two would see live Confirm/Dispute buttons for
+ * a match that already finished and can no longer be disputed (the backend
+ * would 409 the dispute attempt — see disputesService.js).
+ */
+function MatchActions({ match, alreadyConfirmed, submitting, onConfirm, onDispute }) {
+  if (match.status === 'confirmed') {
+    return <p className="confirm-note">This match has already been confirmed and rated.</p>;
+  }
+
+  if (match.status === 'disputed') {
+    return (
+      <p className="confirm-note">
+        This match is under review by an admin. It's blocked until they decide —
+        nothing to do here for now.
+      </p>
+    );
+  }
+
+  if (match.status === 'rejected') {
+    return <p className="confirm-note">This match was cancelled by an admin. It will not count.</p>;
+  }
+
+  if (alreadyConfirmed) {
+    return (
+      <>
+        <p className="confirm-note">
+          You've confirmed this match. It's waiting on the other team before it
+          counts.
+        </p>
+        <p className="caption">Ratings update once both teams confirm.</p>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <button className="btn-primary" type="button" onClick={onConfirm} disabled={submitting}>
+        {submitting ? 'Confirming…' : 'Yes, this is correct'}
+      </button>
+      <button className="btn-link" type="button" onClick={onDispute} disabled={submitting}>
+        Something's wrong — dispute
+      </button>
+      <p className="caption">Ratings update once both teams confirm.</p>
+    </>
   );
 }
 

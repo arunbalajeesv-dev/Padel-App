@@ -220,16 +220,24 @@ function viewForPlayer(match, uid) {
 }
 
 /**
- * ALL pending matches this player is part of — not only the ones awaiting their
- * own confirmation. A pending match belongs on the Home of all four players:
- * the reporter (auto-confirmed at creation) sees it as pending-on-the-other-team,
- * and anyone who still owes a confirmation sees it as action-needed. Each match
- * carries `viewerNeedsToConfirm` so the client can tell those apart WITHOUT
- * re-deriving it — and so a Confirm button is never shown to someone who already
- * confirmed.
+ * ALL pending-or-disputed matches this player is part of — not only the ones
+ * awaiting their own confirmation. A pending match belongs on the Home of all
+ * four players: the reporter (auto-confirmed at creation) sees it as
+ * pending-on-the-other-team, and anyone who still owes a confirmation sees it
+ * as action-needed. Each match carries `viewerNeedsToConfirm` so the client
+ * can tell those apart WITHOUT re-deriving it — and so a Confirm button is
+ * never shown to someone who already confirmed.
  *
- * `players array-contains` + `status ==` is served by the automatic single-field
- * indexes (no composite needed).
+ * `disputed` matches are included too, so a dispute never simply vanishes from
+ * the app: the client renders it inert ("under review by an admin", no
+ * confirm/dispute actions) rather than the player wondering where it went.
+ * Once an admin resolves it, the match is either back to `pending` (and
+ * reappears here as an ordinary pending match) or `rejected` (and moves to
+ * listRecentForPlayer instead) — never silently disappears either way.
+ *
+ * `players array-contains` + `status in […]` is served by the automatic
+ * single-field indexes (no composite needed) — see CLAUDE.md > Firestore
+ * Indexes.
  *
  * @returns {Promise<{matches: object[], players: object, courts: object}>}
  */
@@ -237,7 +245,7 @@ export async function listPendingForPlayer(uid) {
   const snap = await getFirestore()
     .collection(MATCHES_COLLECTION)
     .where('players', 'array-contains', uid)
-    .where('status', '==', STATUS.PENDING)
+    .where('status', 'in', [STATUS.PENDING, STATUS.DISPUTED])
     .get();
 
   const matches = snap.docs
@@ -270,11 +278,15 @@ export async function getMatchForPlayer(uid, matchId) {
 }
 
 /**
- * This player's recent RATED matches, newest first. Confirmed only — a pending
- * match belongs in the "waiting on you" section, not recent activity.
+ * This player's recent RESOLVED matches, newest first — confirmed (rated) and
+ * rejected (a dispute an admin upheld) both belong here. A `pending` or
+ * `disputed` match belongs in the "waiting on you" / "under review" section
+ * instead — see listPendingForPlayer. Including `rejected` here is what makes
+ * a cancelled dispute visible to the player at all: the outcome shows up as
+ * "Cancelled" in recent activity rather than the match just vanishing.
  *
  * Sorted in memory to avoid an array-contains + orderBy composite index; a
- * player's confirmed-match count is small enough that fetching and slicing is
+ * player's resolved-match count is small enough that fetching and slicing is
  * cheaper than maintaining another index.
  *
  * @returns {Promise<{matches: object[], players: object, courts: object}>}
@@ -283,7 +295,7 @@ export async function listRecentForPlayer(uid, { limit = 10 } = {}) {
   const snap = await getFirestore()
     .collection(MATCHES_COLLECTION)
     .where('players', 'array-contains', uid)
-    .where('status', '==', STATUS.CONFIRMED)
+    .where('status', 'in', [STATUS.CONFIRMED, STATUS.REJECTED])
     .get();
 
   const matches = snap.docs

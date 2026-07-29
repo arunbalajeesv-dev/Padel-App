@@ -11,15 +11,17 @@ import BackButton from './BackButton.jsx';
  * which only appears while the match is still pending on the viewer.
  *
  * ---------------------------------------------------------------------------
- * WHAT HAPPENS ON SUBMIT — verified against the backend before building this:
+ * WHAT HAPPENS ON SUBMIT
  *
- * Disputing a PENDING match (the only state reachable from here) flips its
- * status to `disputed`. From that moment `listPendingForPlayer` and
- * `listRecentForPlayer` both filter it out — there is no endpoint that returns a
- * disputed match to a player. So after a successful dispute the match simply
- * DISAPPEARS from Home; there is no "under review" card to render, because the
- * API never sends one. Home shows a one-time flash message instead, then the
- * match is just gone from the lists — that IS the correct state.
+ * Disputing a PENDING match (the only state reachable from here — a confirmed
+ * match 409s instead, see ConfirmMatch.jsx) flips its status to `disputed`.
+ * The match does NOT disappear: `listPendingForPlayer` includes `disputed`
+ * matches specifically so it stays visible, rendered inert ("under review by
+ * an admin") in the same section a pending match would show in. Home also
+ * shows a one-time flash here for immediate feedback on the submit itself.
+ * Once an admin resolves it, the match reappears either back in the normal
+ * pending flow (approved) or in recent activity tagged "Cancelled" (voided) —
+ * it is never a silent disappearance either way.
  * ---------------------------------------------------------------------------
  *
  * No photo upload: Storage is deferred, so this is text-only, per the client

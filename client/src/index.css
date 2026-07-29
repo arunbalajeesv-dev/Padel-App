@@ -581,6 +581,16 @@ body {
   color: #2e7d32;
 }
 
+.chip-disputed {
+  background: #e3e9f3;
+  color: #3b4f70;
+}
+
+.chip-rejected {
+  background: #fbe4e4;
+  color: #9b2c2c;
+}
+
 .match-actions {
   display: flex;
   flex-direction: column;
@@ -1123,6 +1133,22 @@ body {
   border-color: #d8d8d8;
   border-left: 4px solid #b8b8b8;
   background: #fafafa;
+}
+
+/* Blocked on an admin decision — deliberately calmer than the action/waiting
+   amber, since there is nothing for the PLAYER to do here, but still visibly
+   unresolved rather than looking rated. */
+.match-card-disputed {
+  border-color: #c7d2e0;
+  border-left: 4px solid #6b7fa3;
+  background: #f7f9fc;
+}
+
+/* A cancelled dispute, shown in recent activity. Must not read as a normal
+   rated result — a distinct, muted red rather than the calm "Rated" green. */
+.match-card-rejected {
+  background: #fff;
+  opacity: 0.85;
 }
 
 .waiting-status {
