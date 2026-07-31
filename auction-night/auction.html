@@ -51,11 +51,24 @@
   <p class="keys" id="keysHint"></p>
 </div>
 
+<div class="gate" id="pinGate" hidden>
+  <div class="gate-in">
+    <h2>Enter the PIN</h2>
+    <p>Ask your organizer for the PIN — captains, the moderator, and viewers each have a different one.</p>
+    <form id="pinForm">
+      <input id="pinInput" class="pininput" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="0000" autocomplete="off">
+      <button type="submit" class="primary" style="margin-top:12px;width:100%">Continue</button>
+    </form>
+    <p class="formerr" id="pinErr" hidden></p>
+  </div>
+</div>
+
 <div class="gate" id="gate" hidden>
   <div class="gate-in">
     <h2>Take your seat</h2>
     <p>Only captains can bid for their team. Everyone else follows the auction live.</p>
     <div class="seats" id="seatList"></div>
+    <button class="mini" id="wrongPinBtn" style="margin-top:14px">Not your PIN? Enter a different one</button>
   </div>
 </div>
 

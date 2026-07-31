@@ -23,6 +23,37 @@ export const TIMER_EXTEND_WINDOW_SECONDS = 10;
 
 const ALLOWED_CREATE_FIELDS = ['title', 'teams', 'purse', 'slots', 'timerSeconds'];
 
+// Fields the live bidding/sync endpoint (open, unauthenticated) may touch.
+// Everything else — pins, teams, settings, title — is admin-only and must
+// never be reachable through the state-sync write, or the PIN gate below is
+// worthless: anyone who knows an auction's id could just POST new pins.
+const PUBLIC_STATE_FIELDS = ['players', 'currentId', 'bid', 'bidder', 'step', 'lotEndsAt', 'history', 'purse', 'seats', 'seq'];
+
+const PIN_ROLES = ['captain', 'mod', 'viewer'];
+
+function generatePin() {
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
+
+/** Three distinct 4-digit PINs, one per role — collisions would let one PIN answer for two roles. */
+function generatePins() {
+  const pins = {};
+  const used = new Set();
+  for (const role of PIN_ROLES) {
+    let pin;
+    do { pin = generatePin(); } while (used.has(pin));
+    used.add(pin);
+    pins[role] = pin;
+  }
+  return pins;
+}
+
+/** Strips the auction's secrets before it goes anywhere public. */
+function redact(doc) {
+  const { pins, ...rest } = doc;
+  return rest;
+}
+
 export function validateCreate(body) {
   const input = body && typeof body === 'object' ? body : {};
   const rejected = Object.keys(input).filter((k) => !ALLOWED_CREATE_FIELDS.includes(k));
@@ -81,6 +112,7 @@ export async function createAuction({ title, teamNames, purse, slots, timerSecon
     status: 'live',
     settings: { purse, slots, floorPrice: DEFAULT_FLOOR_PRICE, steps: DEFAULT_STEPS, timerSeconds },
     teams,
+    pins: generatePins(),
     seq: 1,
     players: [],
     currentId: null,
@@ -112,10 +144,38 @@ export async function listAuctions() {
   });
 }
 
+/** Admin-only: same list, but with each auction's PINs so they can be re-shared later. */
+export async function listAuctionsForAdmin() {
+  const db = getFirestore();
+  const snap = await db.collection(COLLECTION).orderBy('createdAt', 'desc').limit(100).get();
+  return snap.docs.map((d) => {
+    const a = d.data();
+    return {
+      id: a.id,
+      title: a.title,
+      teams: a.teams.map((t) => ({ name: t.name, color: t.color })),
+      status: a.status,
+      createdAt: a.createdAt,
+      pins: a.pins,
+    };
+  });
+}
+
 export async function getAuction(id) {
   const db = getFirestore();
   const snap = await db.collection(COLLECTION).doc(id).get();
-  return snap.exists ? snap.data() : null;
+  return snap.exists ? redact(snap.data()) : null;
+}
+
+/** Checks a PIN against an auction's three role PINs. Returns the matching role, or null. */
+export async function verifyPin(id, pin) {
+  const db = getFirestore();
+  const snap = await db.collection(COLLECTION).doc(id).get();
+  if (!snap.exists) return null;
+  const { pins } = snap.data();
+  const candidate = String(pin ?? '').trim();
+  const role = PIN_ROLES.find((r) => pins?.[r] === candidate);
+  return role ?? null;
 }
 
 /**
@@ -123,28 +183,36 @@ export async function getAuction(id) {
  * Two devices racing to write the same rev is the expected case (a double
  * bid tap, two captains acting at once), not a corner case, so this is a
  * real Firestore transaction rather than a read-then-write that could race.
+ *
+ * `state` comes from an unauthenticated caller, so it is filtered down to
+ * PUBLIC_STATE_FIELDS before being applied — see the constant above.
  */
 export async function writeAuctionState(id, expectedRev, state) {
   const db = getFirestore();
   const ref = db.collection(COLLECTION).doc(id);
 
+  const publicState = Object.fromEntries(
+    Object.entries(state).filter(([key]) => PUBLIC_STATE_FIELDS.includes(key)),
+  );
+
   const outcome = await db.runTransaction(async (t) => {
     const snap = await t.get(ref);
     if (!snap.exists) return { notFound: true };
     const current = snap.data();
-    if (current.rev !== expectedRev) return { conflict: true, auction: current };
+    if (current.rev !== expectedRev) return { conflict: true, auction: redact(current) };
 
     const next = {
       ...current,
-      ...state,
+      ...publicState,
       id: current.id,
       createdAt: current.createdAt,
+      pins: current.pins,
       rev: current.rev + 1,
       updatedAt: Date.now(),
     };
     next.status = computeStatus(next);
     t.set(ref, next);
-    return { auction: next };
+    return { auction: redact(next) };
   });
 
   return outcome;

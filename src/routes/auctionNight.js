@@ -10,26 +10,9 @@ const STATIC_DIR = path.join(__dirname, '..', '..', 'auction-night');
 
 export const auctionNightRouter = Router();
 
-auctionNightRouter.post('/auction-night/api/auctions', async (req, res, next) => {
-  try {
-    const { rejected, errors, value } = auctionNight.validateCreate(req.body);
-    if (rejected.length > 0) {
-      return res.status(400).json({
-        error: 'Bad Request',
-        reason: `Unknown fields: ${rejected.join(', ')}.`,
-        rejected,
-      });
-    }
-    if (errors.length > 0) {
-      return res.status(400).json({ error: 'Bad Request', errors });
-    }
-
-    const created = await auctionNight.createAuction(value);
-    return res.status(201).json({ auction: created });
-  } catch (err) {
-    return next(err);
-  }
-});
+// Creation lives under /admin now (src/routes/admin.js) — only an admin can
+// start an auction. Everything below stays open: no player accounts here,
+// participants get in with a link plus the PIN the admin hands out.
 
 auctionNightRouter.get('/auction-night/api/auctions', async (req, res, next) => {
   try {
@@ -45,6 +28,23 @@ auctionNightRouter.get('/auction-night/api/auctions/:id', async (req, res, next)
     const found = await auctionNight.getAuction(req.params.id);
     if (!found) return res.status(404).json({ error: 'Not Found' });
     return res.json({ auction: found });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// PIN check: unauthenticated, deliberately generic on failure (no hint about
+// which role a near-miss PIN belongs to). Returns which role tier the PIN
+// unlocks — the client then only offers seats that role is allowed to take.
+auctionNightRouter.post('/auction-night/api/auctions/:id/verify-pin', async (req, res, next) => {
+  try {
+    const { pin } = req.body || {};
+    if (typeof pin !== 'string' || !/^\d{4}$/.test(pin.trim())) {
+      return res.status(400).json({ error: 'Bad Request', reason: 'pin must be a 4-digit string.' });
+    }
+    const role = await auctionNight.verifyPin(req.params.id, pin);
+    if (!role) return res.status(401).json({ error: 'Unauthorized', reason: 'incorrect PIN' });
+    return res.json({ role });
   } catch (err) {
     return next(err);
   }

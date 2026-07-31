@@ -2,6 +2,7 @@
   const AN = window.AN;
   const AUCTION_ID = location.pathname.split('/').filter(Boolean).pop();
   const MINE_KEY = 'auction:me:' + AUCTION_ID;
+  const ROLE_KEY = 'auction:role:' + AUCTION_ID;
 
   // Anti-sniping window — mirrors src/services/auctionNightService.js. A bid
   // landing inside the last TIMER_EXTEND_WINDOW_SECONDS of the countdown
@@ -34,6 +35,7 @@
   let S = null;
   let me = 'g' + Math.random().toString(36).slice(2, 9);
   let seat = null;          // team key | 'mod' | 'watch'
+  let unlockedRole = null;  // 'captain' | 'mod' | 'viewer' — which PIN this device entered
   let sale = null, flip = false, offline = false, seenSold = 0;
 
   function saveMe(){ try{ localStorage.setItem(MINE_KEY, JSON.stringify({me, seat})); }catch(e){} }
@@ -43,6 +45,8 @@
       if(raw){ const d = JSON.parse(raw); me = d.me || me; seat = d.seat || null; }
     }catch(e){}
   }
+  function saveRole(){ try{ localStorage.setItem(ROLE_KEY, unlockedRole); }catch(e){} }
+  function loadRole(){ try{ unlockedRole = localStorage.getItem(ROLE_KEY) || null; }catch(e){} }
 
   const teamByKey = key => S.teams.find(t => t.key === key);
   const isCaptain = () => !!teamByKey(seat);
@@ -135,6 +139,38 @@
     setTimeout(() => { sale = null; render(); }, 1400);
   }
 
+  /* ---------- PIN gate ----------
+     Entering a PIN unlocks a ROLE TIER (captain / mod / viewer), remembered
+     per-device via localStorage so it isn't asked again on reload. The seat
+     picker below then only offers what that tier is allowed to take — a
+     viewer PIN skips the picker entirely and goes straight to watching. */
+  function showPinGate(on){
+    const g = $('pinGate');
+    g.hidden = !on;
+    g.style.display = on ? 'grid' : 'none';
+  }
+  async function submitPin(pin){
+    const err = $('pinErr');
+    err.hidden = true;
+    if(!/^\d{4}$/.test(pin)){ err.textContent = 'Enter the 4-digit PIN.'; err.hidden = false; return; }
+    const r = await AN.api('/auctions/' + AUCTION_ID + '/verify-pin', { method: 'POST', body: JSON.stringify({ pin }) });
+    if(!r.ok){
+      err.textContent = r.status === 401 ? 'That PIN is not right — check with your organizer.' : 'Could not check that PIN — try again.';
+      err.hidden = false;
+      return;
+    }
+    unlockedRole = r.body.role; saveRole();
+    showPinGate(false);
+    $('pinInput').value = '';
+    enterWithRole();
+  }
+  // Called once a role is known (fresh PIN entry, or already remembered from
+  // a past visit): a viewer PIN never sees a seat picker at all.
+  function enterWithRole(){
+    if(unlockedRole === 'viewer' && (!seat || seat === 'watch')){ takeSeat('watch'); return; }
+    if(!seat || ((isCaptain() || isMod()) && S.seats[seat] !== me)) openGate();
+  }
+
   /* ---------- seats ---------- */
   function showGate(on){
     const g = $('gate');
@@ -142,15 +178,18 @@
     g.style.display = on ? 'grid' : 'none';
   }
   function openGate(){
-    const rows = S.teams.map(t => {
+    // Inclusion, not exclusion — a viewer PIN must see NEITHER team nor mod
+    // seats here, so each row is only added for the tier that's allowed it.
+    const rows = unlockedRole === 'captain' ? S.teams.map(t => {
       const held = S.seats[t.key];
       const label = held === me ? 'Your seat' : (held ? 'Taken · tap to claim' : 'Free');
       return '<button class="seatbtn" data-seat="' + t.key + '" style="--tc:' + t.color + '">' + AN.esc(t.name) + ' <small>' + label + '</small></button>';
-    }).join('');
+    }).join('') : '';
     const modHeld = S.seats.mod;
     const modLabel = modHeld === me ? 'Your seat' : (modHeld ? 'Taken · tap to claim' : 'Runs the floor');
-    $('seatList').innerHTML = rows +
-      '<button class="seatbtn" data-seat="mod" style="--tc:var(--mod)">Moderator <small>' + modLabel + '</small></button>' +
+    const modRow = unlockedRole === 'mod' ?
+      '<button class="seatbtn" data-seat="mod" style="--tc:var(--mod)">Moderator <small>' + modLabel + '</small></button>' : '';
+    $('seatList').innerHTML = rows + modRow +
       '<button class="seatbtn" data-seat="watch">Just watching <small>view only</small></button>';
     showGate(true);
   }
@@ -515,6 +554,16 @@
     if(b.id === 'undoBtn') return undo();
     if(b.id === 'resetBtn') return reset();
     if(b.id === 'switchBtn') return openGate();
+    if(b.id === 'wrongPinBtn'){
+      unlockedRole = null; saveRole(); seat = null; saveMe();
+      showGate(false); showPinGate(true); $('pinInput').focus();
+      return;
+    }
+  });
+
+  $('pinForm').addEventListener('submit', e => {
+    e.preventDefault();
+    submitPin($('pinInput').value.trim());
   });
 
   ['fName','fRole','fBase'].forEach(id => $(id).addEventListener('keydown', e => { if(e.key === 'Enter') addPlayers(); }));
@@ -553,7 +602,7 @@
   });
 
   (async function init(){
-    loadMe();
+    loadMe(); loadRole();
     const r = await AN.api('/auctions/' + AUCTION_ID);
     if(!r.ok){
       document.querySelector('.wrap').innerHTML =
@@ -564,7 +613,8 @@
     adopt(r.body.auction);
     seenSold = S.history.length;
     render();
-    if(!seat || ((isCaptain() || isMod()) && S.seats[seat] !== me)) openGate();
+    if(!unlockedRole){ showPinGate(true); $('pinInput').focus(); }
+    else enterWithRole();
     setInterval(pull, 2000);
     setInterval(tickTimer, 500);
   })();

@@ -151,6 +151,8 @@ a{color:inherit}
 .gate-in{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:26px;max-width:440px;width:100%;text-align:center;color:var(--chalk)}
 .gate h2{font-family:var(--display);font-size:30px;letter-spacing:.04em;text-transform:uppercase;margin:0 0 6px}
 .gate p{color:var(--dim);font-size:14px;margin:0 0 20px}
+.pininput{width:100%;background:#0A1120;border:1px solid var(--line);color:var(--chalk);border-radius:10px;padding:14px;font:600 28px var(--mono);letter-spacing:.3em;text-align:center}
+.pininput::placeholder{color:#3A4863;letter-spacing:.3em}
 .seats{display:flex;flex-direction:column;gap:10px}
 .seatbtn{border:1px solid var(--tc,var(--line));background:transparent;color:var(--tc,var(--chalk));border-radius:10px;padding:14px;font-family:var(--display);font-size:20px;letter-spacing:.04em;text-transform:uppercase;display:flex;justify-content:center;align-items:center;gap:10px}
 .seatbtn:hover{background:color-mix(in srgb,var(--tc,#fff) 12%,transparent)}

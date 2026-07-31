@@ -43,6 +43,7 @@
           </button>
           <button class="tab-btn" data-tab="history" type="button">History</button>
           <button class="tab-btn" data-tab="alerts" type="button">Weekly-gain alerts</button>
+          <button class="tab-btn" data-tab="auctions" type="button">Auction Night</button>
         </nav>
 
         <section id="statsTab" class="tab-panel">
@@ -59,6 +60,40 @@
 
         <section id="alertsTab" class="tab-panel" hidden>
           <div id="alertsContent">Loading…</div>
+        </section>
+
+        <section id="auctionsTab" class="tab-panel" hidden>
+          <div class="panel" style="max-width:520px;margin-bottom:24px">
+            <h3 style="margin-top:0">New auction</h3>
+            <form id="auctionForm">
+              <label class="field-label" for="aucTitle">Title</label>
+              <input id="aucTitle" class="field" placeholder="e.g. Sunday Padel Draft" maxlength="80">
+
+              <label class="field-label" for="aucPurse">Coins per captain</label>
+              <input id="aucPurse" class="field" type="number" min="100" step="100" value="30000">
+
+              <label class="field-label" for="aucSlots">Roster slots per team</label>
+              <input id="aucSlots" class="field" type="number" min="1" max="10" value="3">
+
+              <label class="field-label">Teams (2–8 captains)</label>
+              <div id="aucTeams"></div>
+              <button type="button" class="btn-small" id="aucAddTeam" style="width:auto;padding:0 12px;margin-bottom:12px">+ Add team</button>
+
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#555;margin-bottom:8px">
+                <input type="checkbox" id="aucTimerOn" style="width:auto">
+                Countdown timer per lot
+              </label>
+              <input id="aucTimerSeconds" class="field" type="number" min="10" max="600" step="5" value="30" hidden>
+
+              <button type="submit" class="btn-primary" id="aucCreateBtn">Create auction</button>
+              <p class="error" id="aucFormErr" hidden></p>
+            </form>
+          </div>
+
+          <div id="auctionCreated"></div>
+
+          <h3>All auctions</h3>
+          <div id="auctionsContent">Loading…</div>
         </section>
       </section>
     </div>

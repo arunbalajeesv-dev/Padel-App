@@ -202,6 +202,7 @@ function initDashboard() {
   loadDisputes();
   loadHistory();
   loadAlerts();
+  loadAuctions();
 
   if (dashboardInitialised) return;
   dashboardInitialised = true;
@@ -210,6 +211,7 @@ function initDashboard() {
     btn.addEventListener('click', () => selectTab(btn.dataset.tab));
   });
   selectTab('stats');
+  initAuctionForm();
 }
 
 function selectTab(name) {
@@ -453,5 +455,159 @@ function renderAlerts(players, threshold, windowDays) {
       </thead>
       <tbody>${rows}</tbody>
     </table>
+  `;
+}
+
+// --- Auction Night (draft-auction tool) -------------------------------------
+//
+// Only an admin can create an auction (this form, gated by the same
+// requireAdmin as everything else here). Captains/moderator/viewers join
+// later via a plain link plus one of the three PINs shown after creation —
+// see src/services/auctionNightService.js and auction-night/auction.js.
+
+const SWATCH = ['#F5A524', '#3BC9DB', '#FF7A7A', '#5BE49B', '#AEA1FF', '#FFB4D6', '#8ED1FC', '#D6A756'];
+const AUC_MIN_TEAMS = 2, AUC_MAX_TEAMS = 8;
+
+function auctionLink(id) {
+  return `${location.origin}/auction-night/a/${id}`;
+}
+
+function initAuctionForm() {
+  const teamsEl = $('aucTeams');
+  const addTeamBtn = $('aucAddTeam');
+  const timerOn = $('aucTimerOn');
+  const timerSeconds = $('aucTimerSeconds');
+  const form = $('auctionForm');
+  const errEl = $('aucFormErr');
+  const createBtn = $('aucCreateBtn');
+
+  function teamRow(i) {
+    const el = document.createElement('div');
+    el.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:8px';
+    el.innerHTML = `
+      <span style="width:12px;height:12px;border-radius:50%;flex:0 0 auto;background:${SWATCH[i % SWATCH.length]}"></span>
+      <input class="field" style="margin-bottom:0" placeholder="Team ${i + 1} name" maxlength="24">
+      <button type="button" class="btn-link" data-rm-team="1">✕</button>
+    `;
+    el.querySelector('[data-rm-team]').addEventListener('click', () => {
+      if (teamsEl.children.length <= AUC_MIN_TEAMS) return;
+      el.remove();
+      renumberTeams();
+    });
+    return el;
+  }
+
+  function renumberTeams() {
+    [...teamsEl.children].forEach((el, i) => {
+      el.querySelector('span').style.background = SWATCH[i % SWATCH.length];
+      const input = el.querySelector('input');
+      if (!input.value) input.placeholder = `Team ${i + 1} name`;
+    });
+    addTeamBtn.disabled = teamsEl.children.length >= AUC_MAX_TEAMS;
+  }
+
+  for (let i = 0; i < 2; i++) teamsEl.appendChild(teamRow(i));
+  renumberTeams();
+
+  addTeamBtn.addEventListener('click', () => {
+    if (teamsEl.children.length >= AUC_MAX_TEAMS) return;
+    teamsEl.appendChild(teamRow(teamsEl.children.length));
+    renumberTeams();
+  });
+
+  timerOn.addEventListener('change', () => { timerSeconds.hidden = !timerOn.checked; });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    showError(errEl, '');
+    const teams = [...teamsEl.querySelectorAll('input')].map((i) => i.value.trim()).filter(Boolean);
+    const title = $('aucTitle').value.trim();
+    const purse = parseInt($('aucPurse').value, 10);
+    const slots = parseInt($('aucSlots').value, 10);
+    const timerSecondsVal = timerOn.checked ? (parseInt(timerSeconds.value, 10) || 0) : 0;
+
+    if (teams.length < AUC_MIN_TEAMS) {
+      showError(errEl, `Name at least ${AUC_MIN_TEAMS} teams.`);
+      return;
+    }
+
+    createBtn.disabled = true;
+    createBtn.textContent = 'Creating…';
+    try {
+      const { auction } = await apiFetch('/admin/auctions', {
+        method: 'POST',
+        body: { title, teams, purse, slots, timerSeconds: timerSecondsVal },
+      });
+      renderCreated(auction);
+      form.reset();
+      teamsEl.innerHTML = '';
+      for (let i = 0; i < 2; i++) teamsEl.appendChild(teamRow(i));
+      renumberTeams();
+      timerSeconds.hidden = true;
+      loadAuctions();
+    } catch (err) {
+      showError(errEl, err.message || 'Could not create the auction.');
+    } finally {
+      createBtn.disabled = false;
+      createBtn.textContent = 'Create auction';
+    }
+  });
+}
+
+function renderCreated(auction) {
+  $('auctionCreated').innerHTML = `
+    <div class="panel" style="max-width:520px;border-color:var(--gold);margin-bottom:24px">
+      <h3 style="margin-top:0">"${escapeHtml(auction.title)}" is live</h3>
+      <p class="card-meta">Share the link below, then hand each role its PIN.</p>
+      <p style="font-size:13px;word-break:break-all"><a href="${auctionLink(auction.id)}" target="_blank" rel="noopener noreferrer">${auctionLink(auction.id)}</a></p>
+      ${renderPinRows(auction.pins)}
+    </div>
+  `;
+}
+
+function renderPinRows(pins) {
+  const labels = { captain: 'Captains', mod: 'Moderator', viewer: 'Viewers' };
+  return Object.entries(labels)
+    .map(
+      ([key, label]) => `
+        <div class="card-top" style="align-items:center">
+          <span>${label}</span>
+          <span style="font-family:monospace;font-size:18px;font-weight:700;letter-spacing:.2em">${escapeHtml(pins[key])}</span>
+        </div>
+      `,
+    )
+    .join('');
+}
+
+async function loadAuctions() {
+  const el = $('auctionsContent');
+  try {
+    const { auctions } = await apiFetch('/admin/auctions');
+    el.innerHTML = renderAuctionsList(auctions);
+  } catch (err) {
+    el.innerHTML = `<p class="error">Could not load auctions: ${escapeHtml(err.message)}</p>`;
+  }
+}
+
+function renderAuctionsList(auctions) {
+  if (auctions.length === 0) {
+    return '<p class="empty-note">No auctions yet — create one above.</p>';
+  }
+  return `<div class="card-list">${auctions.map(renderAuctionCard).join('')}</div>`;
+}
+
+function renderAuctionCard(a) {
+  const teamNames = a.teams.map((t) => escapeHtml(t.name)).join(' / ');
+  const statusTag = a.status === 'complete' ? '<span class="tag">Complete</span>' : '<span class="tag tag-review">Live</span>';
+  return `
+    <article class="card">
+      <div class="card-top">
+        <span>${formatDate(new Date(a.createdAt).toISOString())}</span>
+        ${statusTag}
+      </div>
+      <div class="card-teams"><span>${escapeHtml(a.title)}</span><span>${teamNames}</span></div>
+      <p style="font-size:12px;word-break:break-all;margin:0 0 10px"><a href="${auctionLink(a.id)}" target="_blank" rel="noopener noreferrer">${auctionLink(a.id)}</a></p>
+      ${renderPinRows(a.pins)}
+    </article>
   `;
 }

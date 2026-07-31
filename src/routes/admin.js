@@ -15,6 +15,7 @@ import { setAnchor, findById as findUser } from '../services/usersService.js';
 import { weeklyGainAlerts } from '../services/alertsService.js';
 import { adminStats } from '../services/statsService.js';
 import { trustLeaderboard, trustFor } from '../services/trustService.js';
+import * as auctionNight from '../services/auctionNightService.js';
 
 export const adminRouter = Router();
 
@@ -180,6 +181,29 @@ adminRouter.get('/alerts/weekly-gain', async (req, res, next) => {
   try {
     const config = await getConfig();
     return res.json(await weeklyGainAlerts(config));
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// --- Auction Night (draft-auction tool, admin creates, PIN-gated for players) ----
+
+adminRouter.get('/auctions', async (req, res, next) => {
+  try {
+    return res.json({ auctions: await auctionNight.listAuctionsForAdmin() });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+adminRouter.post('/auctions', async (req, res, next) => {
+  try {
+    const { rejected, errors, value } = auctionNight.validateCreate(req.body);
+    if (rejected.length > 0) return reject(res, rejected, `Unknown fields: ${rejected.join(', ')}.`);
+    if (errors.length > 0) return badRequest(res, errors);
+
+    const created = await auctionNight.createAuction(value);
+    return res.status(201).json({ auction: created });
   } catch (err) {
     return next(err);
   }
