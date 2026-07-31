@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Auction Night</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow"><span class="dot"></span><span id="liveLabel">Live auction</span></div>
+      <h1 id="titleEl">Auction Night</h1>
+    </div>
+    <div class="top-actions">
+      <span class="whoami" id="whoami">Watching</span>
+      <button class="ghost" id="switchBtn">Change seat</button>
+      <button class="ghost" id="undoBtn">Undo last sale</button>
+      <button class="ghost" id="resetBtn">Reset auction</button>
+      <a class="ghost" href="../">All auctions</a>
+    </div>
+  </header>
+
+  <div id="warnSlot"></div>
+
+  <article class="card lot" id="lot"></article>
+  <section class="teams-grid" id="teamsGrid"></section>
+
+  <section class="floor">
+    <div class="card">
+      <div class="panel-title"><span>Player pool</span><span id="poolCount"></span></div>
+      <div class="addrow">
+        <input class="f-name" id="fName" placeholder="Player name" autocomplete="off">
+        <input class="f-role" id="fRole" placeholder="Role (optional)" autocomplete="off">
+        <input class="f-base" id="fBase" type="number" min="100" step="100" value="500" placeholder="Base">
+        <button class="add" id="addBtn">Add player</button>
+      </div>
+      <p class="hint" id="poolHint">Separate names with commas to add several at once. Base price is the opening bid.</p>
+      <div class="list" id="poolList"></div>
+    </div>
+    <div class="card">
+      <div class="panel-title"><span>Squads</span><span id="soldCount"></span></div>
+      <div class="rosters" id="rosters"></div>
+    </div>
+  </section>
+
+  <p class="keys" id="keysHint"></p>
+</div>
+
+<div class="gate" id="gate" hidden>
+  <div class="gate-in">
+    <h2>Take your seat</h2>
+    <p>Only captains can bid for their team. Everyone else follows the auction live.</p>
+    <div class="seats" id="seatList"></div>
+  </div>
+</div>
+
+<script src="../shared.js"></script>
+<script src="../auction.js"></script>
+</body>
+</html>

@@ -11,6 +11,7 @@ import { matchesRouter } from './routes/matches.js';
 import { feedbackRouter } from './routes/feedback.js';
 import { leaderboardRouter } from './routes/leaderboard.js';
 import { adminRouter } from './routes/admin.js';
+import { auctionNightRouter } from './routes/auctionNight.js';
 import { requireAuth } from './middleware/auth.js';
 import { notFound, errorHandler } from './middleware/errorHandler.js';
 
@@ -42,26 +43,52 @@ const adminPanelHelmet = helmet({
   },
 });
 
+/**
+ * Relaxed ONLY for /auction-night's static shell (the community draft-auction
+ * tool). It has no inline/CDN scripts to worry about — everything is a
+ * same-origin file — but it does load Google Fonts, which the default
+ * `style-src 'self'` / no `font-src` fallback blocks.
+ */
+const auctionNightHelmet = helmet({
+  contentSecurityPolicy: {
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      'style-src': ["'self'", 'https://fonts.googleapis.com'],
+      'font-src': ["'self'", 'https://fonts.gstatic.com'],
+    },
+  },
+});
+
 export function createApp() {
   const app = express();
 
-  // Exactly one of these runs per request — see the two consts above for why
-  // /admin-panel needs a different policy than everything else.
+  // Exactly one of these runs per request — see the consts above for why
+  // /admin-panel and /auction-night each need a different policy than
+  // everything else.
   app.use((req, res, next) => {
-    const helmetForPath = req.path.startsWith('/admin-panel') ? adminPanelHelmet : strictHelmet;
+    const helmetForPath = req.path.startsWith('/admin-panel')
+      ? adminPanelHelmet
+      : req.path.startsWith('/auction-night')
+        ? auctionNightHelmet
+        : strictHelmet;
     return helmetForPath(req, res, next);
   });
   app.use(cors());
   app.use(express.json());
 
-  // Health checks and the admin panel's static shell are the only
-  // unauthenticated routes. Render probes health without credentials; the
-  // admin panel is a public page (like any login screen) whose OWN script
-  // then authenticates every API call it makes with a real bearer token —
-  // nothing behind requireAdmin becomes reachable without one. See
-  // admin-panel/app.js.
+  // Health checks, the admin panel's static shell, and the auction-night tool
+  // are the only unauthenticated routes. Render probes health without
+  // credentials; the admin panel is a public page (like any login screen)
+  // whose OWN script then authenticates every API call it makes with a real
+  // bearer token — nothing behind requireAdmin becomes reachable without one
+  // (see admin-panel/app.js). auction-night is unauthenticated by design: a
+  // standalone community draft-auction tool with no player accounts, no
+  // rating data, and fake currency — open by link, same trust model as
+  // texting the link to the group chat. It never touches the users/matches
+  // collections.
   app.use(healthRouter);
   app.use('/admin-panel', express.static(ADMIN_PANEL_DIR));
+  app.use(auctionNightRouter);
 
   // ONE deliberate exception to blanket auth: POST /users, first-time signup.
   // The caller has a verified token and no profile yet, so requireAuth would
