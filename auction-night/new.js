@@ -34,6 +34,10 @@
   for(let i=0;i<2;i++) teamsEl.appendChild(teamRow(i));
   renumber();
 
+  const timerOn = document.getElementById('timerOn');
+  const timerRow = document.getElementById('timerRow');
+  timerOn.addEventListener('change', () => { timerRow.hidden = !timerOn.checked; });
+
   addBtn.addEventListener('click', () => {
     if(teamsEl.children.length >= MAX_TEAMS) return;
     teamsEl.appendChild(teamRow(teamsEl.children.length));
@@ -47,11 +51,12 @@
     const title = document.getElementById('title').value.trim();
     const purse = parseInt(document.getElementById('purse').value, 10);
     const slots = parseInt(document.getElementById('slots').value, 10);
+    const timerSeconds = timerOn.checked ? (parseInt(document.getElementById('timerSeconds').value, 10) || 0) : 0;
 
     if(teams.length < MIN_TEAMS){ errEl.textContent = 'Name at least ' + MIN_TEAMS + ' teams.'; errEl.hidden = false; return; }
 
     createBtn.disabled = true; createBtn.textContent = 'Creating…';
-    const r = await api('/auctions', {method:'POST', body: JSON.stringify({title, teams, purse, slots})});
+    const r = await api('/auctions', {method:'POST', body: JSON.stringify({title, teams, purse, slots, timerSeconds})});
     createBtn.disabled = false; createBtn.textContent = 'Create auction';
 
     if(!r.ok){

@@ -45,6 +45,17 @@
       <p class="hint">Each team is named after its captain, same as a real auction.</p>
     </div>
 
+    <div class="field">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="timerOn" style="width:auto">
+        Countdown timer per lot
+      </label>
+      <div id="timerRow" style="margin-top:10px" hidden>
+        <input id="timerSeconds" type="number" min="10" max="600" step="5" value="30">
+        <p class="hint">Seconds per lot. When it hits zero the lot auto-sells to whoever's leading (or goes unsold with no bids). A bid in the last 10 seconds adds 15 more seconds, so a live bidding war never gets cut off mid-raise.</p>
+      </div>
+    </div>
+
     <p class="formerr" id="formErr" hidden></p>
     <div class="formactions">
       <button type="submit" class="primary" id="createBtn">Create auction</button>

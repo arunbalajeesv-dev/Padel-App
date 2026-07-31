@@ -15,7 +15,13 @@ const DEFAULT_FLOOR_PRICE = 100;
 const MIN_TEAMS = 2;
 const MAX_TEAMS = 8;
 
-const ALLOWED_CREATE_FIELDS = ['title', 'teams', 'purse', 'slots'];
+// Anti-sniping: a bid landing inside the last TIMER_EXTEND_WINDOW_SECONDS of
+// the countdown pushes the deadline out by TIMER_EXTEND_SECONDS. Fixed rather
+// than per-auction config for now — see auction-night's timer design notes.
+export const TIMER_EXTEND_SECONDS = 15;
+export const TIMER_EXTEND_WINDOW_SECONDS = 10;
+
+const ALLOWED_CREATE_FIELDS = ['title', 'teams', 'purse', 'slots', 'timerSeconds'];
 
 export function validateCreate(body) {
   const input = body && typeof body === 'object' ? body : {};
@@ -40,7 +46,15 @@ export function validateCreate(body) {
     errors.push('slots must be an integer between 1 and 10.');
   }
 
-  return { rejected, errors, value: { title, teamNames, purse, slots } };
+  // 0 (or omitted) means "no timer" — an opt-in feature, not a default.
+  const timerSeconds = input.timerSeconds === undefined || input.timerSeconds === null || input.timerSeconds === 0
+    ? 0
+    : Number(input.timerSeconds);
+  if (timerSeconds !== 0 && (!Number.isInteger(timerSeconds) || timerSeconds < 10 || timerSeconds > 600)) {
+    errors.push('timerSeconds must be 0 (no timer) or an integer between 10 and 600.');
+  }
+
+  return { rejected, errors, value: { title, teamNames, purse, slots, timerSeconds } };
 }
 
 function computeStatus(doc) {
@@ -52,7 +66,7 @@ function computeStatus(doc) {
   return complete ? 'complete' : 'live';
 }
 
-export async function createAuction({ title, teamNames, purse, slots }) {
+export async function createAuction({ title, teamNames, purse, slots, timerSeconds }) {
   const db = getFirestore();
   const ref = db.collection(COLLECTION).doc();
 
@@ -65,7 +79,7 @@ export async function createAuction({ title, teamNames, purse, slots }) {
     updatedAt: Date.now(),
     rev: 1,
     status: 'live',
-    settings: { purse, slots, floorPrice: DEFAULT_FLOOR_PRICE, steps: DEFAULT_STEPS },
+    settings: { purse, slots, floorPrice: DEFAULT_FLOOR_PRICE, steps: DEFAULT_STEPS, timerSeconds },
     teams,
     seq: 1,
     players: [],
@@ -73,6 +87,7 @@ export async function createAuction({ title, teamNames, purse, slots }) {
     bid: 0,
     bidder: null,
     step: DEFAULT_STEPS[2],
+    lotEndsAt: null,
     history: [],
     purse: Object.fromEntries(teams.map((t) => [t.key, purse])),
     seats: Object.fromEntries([...teams.map((t) => [t.key, null]), ['mod', null]]),

@@ -75,6 +75,8 @@ a{color:inherit}
 .price{font-family:var(--display);font-size:clamp(40px,8vw,64px);line-height:.95}
 .price.flip{animation:flip .28s ease}
 @keyframes flip{0%{transform:translateY(-40%) scaleY(.7);opacity:.3}100%{transform:none;opacity:1}}
+.timer{font-family:var(--mono);font-weight:600;font-size:clamp(20px,4vw,28px);color:var(--chalk);letter-spacing:.04em}
+.timer.low{color:var(--alert);animation:pulse .8s infinite}
 .price-label{font:600 11px var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--dim)}
 .leader{font:600 13px var(--body);letter-spacing:.06em;text-transform:uppercase}
 .steps{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
@@ -111,6 +113,9 @@ a{color:inherit}
 .paddle:active:not(:disabled){transform:translateY(2px)}
 .paddle:disabled{background:#1C2740;color:#5C6B87;cursor:not-allowed}
 .team-note{font:400 12px var(--body);color:var(--dim);text-align:center;min-height:16px}
+.jumprow{display:flex;gap:6px;margin-top:8px}
+.jumprow input{flex:1;min-width:0;background:#0A1120;border:1px solid var(--line);color:var(--chalk);border-radius:6px;padding:7px 8px;font:400 13px var(--mono)}
+.jumprow input::placeholder{color:#5C6B87}
 
 .floor{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .panel-title{font:600 11px var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--dim);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}

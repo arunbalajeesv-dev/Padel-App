@@ -3,13 +3,19 @@
   const AUCTION_ID = location.pathname.split('/').filter(Boolean).pop();
   const MINE_KEY = 'auction:me:' + AUCTION_ID;
 
+  // Anti-sniping window — mirrors src/services/auctionNightService.js. A bid
+  // landing inside the last TIMER_EXTEND_WINDOW_SECONDS of the countdown
+  // pushes the deadline out by TIMER_EXTEND_SECONDS.
+  const TIMER_EXTEND_SECONDS = 15;
+  const TIMER_EXTEND_WINDOW_SECONDS = 10;
+
   const $ = id => document.getElementById(id);
 
   function normalize(doc){
     const d = doc || {};
     return {
       id: d.id, title: d.title || 'Auction Night', rev: d.rev || 0,
-      settings: Object.assign({ purse: 30000, slots: 3, floorPrice: 100, steps: [100,250,500,1000,2500] }, d.settings || {}),
+      settings: Object.assign({ purse: 30000, slots: 3, floorPrice: 100, steps: [100,250,500,1000,2500], timerSeconds: 0 }, d.settings || {}),
       teams: Array.isArray(d.teams) ? d.teams : [],
       seq: d.seq || 1,
       players: Array.isArray(d.players) ? d.players : [],
@@ -17,6 +23,7 @@
       bid: d.bid || 0,
       bidder: d.bidder ?? null,
       step: d.step || 500,
+      lotEndsAt: d.lotEndsAt ?? null,
       history: Array.isArray(d.history) ? d.history : [],
       purse: d.purse || {},
       seats: d.seats || {},
@@ -50,6 +57,22 @@
   const current = () => S.players.find(p => p.id === S.currentId) || null;
   const maxBid = key => S.purse[key] - (S.settings.slots - roster(key).length - 1) * S.settings.floorPrice;
   const done = () => S.teams.every(t => roster(t.key).length === S.settings.slots);
+
+  // Call after S.currentId changes: starts the countdown if there's a real
+  // lot on the block and this auction has a timer configured, clears it
+  // otherwise (nothing on the block, or no timer).
+  function startLotTimer(){
+    S.lotEndsAt = (S.currentId && S.settings.timerSeconds) ? Date.now() + S.settings.timerSeconds * 1000 : null;
+  }
+  // A bid landing near the buzzer pushes the deadline out — the countdown
+  // exists to create urgency, not to cut off a live bidding war mid-raise.
+  function maybeExtendTimer(){
+    if(!S.lotEndsAt) return;
+    const remainingMs = S.lotEndsAt - Date.now();
+    if(remainingMs <= TIMER_EXTEND_WINDOW_SECONDS * 1000){
+      S.lotEndsAt = Date.now() + TIMER_EXTEND_SECONDS * 1000;
+    }
+  }
 
   /* ---------- sync ----------
      Every write carries the revision it was read against. The server (a
@@ -170,7 +193,7 @@
     $('fName').value = ''; $('fRole').value = ''; $('fName').focus();
     tx(() => {
       names.forEach(name => S.players.push({ id: S.seq++, name, role, base, status: 'pool', team: null, price: 0 }));
-      if(!S.currentId){ const n = pool()[0]; if(n){ S.currentId = n.id; S.bid = 0; S.bidder = null; } }
+      if(!S.currentId){ const n = pool()[0]; if(n){ S.currentId = n.id; S.bid = 0; S.bidder = null; startLotTimer(); } }
     });
   }
 
@@ -181,6 +204,7 @@
       S.currentId = next ? next.id : null;
       if(!next && notify !== false) AN.toast('Pool is empty');
       S.bid = 0; S.bidder = null;
+      startLotTimer();
     });
   }
 
@@ -189,6 +213,7 @@
     tx(() => {
       if(!S.players.some(p => p.id === id && p.status !== 'sold')) return false;
       S.currentId = id; S.bid = 0; S.bidder = null;
+      startLotTimer();
     });
   }
 
@@ -205,6 +230,28 @@
       const next = S.bidder ? S.bid + S.step : p.base;
       if(next > maxBid(team)){ AN.toast('You can go up to ' + AN.money(maxBid(team)) + ' only'); return false; }
       S.bid = next; S.bidder = team; flip = true;
+      maybeExtendTimer();
+    });
+  }
+
+  // A captain's own jump — an explicit raise amount instead of the shared
+  // step, e.g. bidding +2000 to scare off a rival. Still has to clear the
+  // current step, same floor as an ordinary bid.
+  function bidCustom(team, raise){
+    if(seat !== team) return AN.toast(
+      isMod() ? 'Moderators call the auction, they do not bid'
+      : isCaptain() ? 'You can only bid for ' + teamByKey(seat).name
+      : 'View only — you cannot bid');
+    tx(() => {
+      const p = current();
+      if(!p){ AN.toast('No player on the block'); return false; }
+      if(roster(team).length >= S.settings.slots){ AN.toast('Your squad is full'); return false; }
+      if(S.bidder === team){ AN.toast('You already lead'); return false; }
+      if(!Number.isFinite(raise) || raise < S.step){ AN.toast('Jump must be at least ' + AN.money(S.step)); return false; }
+      const next = (S.bidder ? S.bid : p.base) + raise;
+      if(next > maxBid(team)){ AN.toast('You can go up to ' + AN.money(maxBid(team)) + ' only'); return false; }
+      S.bid = next; S.bidder = team; flip = true;
+      maybeExtendTimer();
     });
   }
 
@@ -217,8 +264,33 @@
       p.status = 'sold'; p.team = team; p.price = price;
       S.purse[team] -= price;
       S.history.push({ id: p.id, name: p.name, team, price });
-      S.currentId = null; S.bid = 0; S.bidder = null;
+      S.currentId = null; S.bid = 0; S.bidder = null; S.lotEndsAt = null;
       flashLast();
+    }).then(() => {
+      setTimeout(() => { if(!done() && canRun() && !S.currentId) nextLot(false); }, 1400);
+    });
+  }
+
+  // Auto-resolve when the countdown hits zero — sells to whoever's leading,
+  // or marks unsold with no bids. Deliberately bypasses guard(): this is a
+  // system trigger the moderator opted into by starting the timer, not a
+  // person acting, so it runs from ANY connected device (even a spectator's
+  // tab), not just one with canRun(). Whichever device's tick notices first
+  // wins; the rest 409, adopt the resolved state, and no-op on retry.
+  function resolveExpiredLot(){
+    tx(() => {
+      const p = current();
+      if(!p || !S.lotEndsAt || Date.now() < S.lotEndsAt) return false;
+      if(S.bidder){
+        const team = S.bidder, price = S.bid;
+        p.status = 'sold'; p.team = team; p.price = price;
+        S.purse[team] -= price;
+        S.history.push({ id: p.id, name: p.name, team, price });
+        flashLast();
+      } else {
+        p.status = 'unsold';
+      }
+      S.currentId = null; S.bid = 0; S.bidder = null; S.lotEndsAt = null;
     }).then(() => {
       setTimeout(() => { if(!done() && canRun() && !S.currentId) nextLot(false); }, 1400);
     });
@@ -232,6 +304,7 @@
       p.status = 'unsold'; AN.toast(p.name + ' goes unsold');
       const next = pool().find(x => x.status === 'pool');
       S.currentId = next ? next.id : null; S.bid = 0; S.bidder = null;
+      startLotTimer();
     });
   }
 
@@ -252,7 +325,7 @@
     if(!guard()) return;
     tx(() => {
       S.players = S.players.filter(p => p.id !== id);
-      if(S.currentId === id){ S.currentId = null; S.bid = 0; S.bidder = null; }
+      if(S.currentId === id){ S.currentId = null; S.bid = 0; S.bidder = null; S.lotEndsAt = null; }
     });
   }
 
@@ -261,7 +334,7 @@
     if(!await AN.ask('Clear every player, bid and squad for everyone watching?')) return;
     tx(() => {
       S.players = []; S.history = [];
-      S.currentId = null; S.bid = 0; S.bidder = null;
+      S.currentId = null; S.bid = 0; S.bidder = null; S.lotEndsAt = null;
       S.step = S.settings.steps[2] ?? S.settings.steps[0];
       S.purse = Object.fromEntries(S.teams.map(t => [t.key, S.settings.purse]));
       seenSold = 0; sale = null;
@@ -287,6 +360,11 @@
     const slots = Array.from({ length: S.settings.slots }, (_, i) => mine[i]
       ? '<div class="slot filled">' + AN.esc(mine[i].name) + '</div>' : '<div class="slot">Open</div>').join('');
 
+    const jumpRow = canBid
+      ? '<div class="jumprow"><input type="number" class="jumpinput" data-jump-input="' + key + '" min="' + S.step + '" step="' + S.step + '" placeholder="Raise by…">' +
+        '<button class="mini" data-jump="' + key + '">Jump</button></div>'
+      : '';
+
     return '<div class="team-head"><span class="team-role">Captain</span>' +
         (isMe ? '<span class="you">You</span>' : (S.seats[key] ? '<span class="seatst">Seated</span>' : '')) +
         (isMod() && S.seats[key] ? '<button class="mini" style="margin-left:auto" data-free="' + key + '">Free seat</button>' : '') + '</div>' +
@@ -296,6 +374,7 @@
       '<div class="slots" style="margin-bottom:10px">' + slots + '</div>' +
       '<button class="paddle" data-bid="' + key + '"' + (canBid ? '' : ' disabled') + '>' +
         (isMe ? (p && !full ? 'Bid ' + AN.money(next) : 'Bid') : 'Bid') + '</button>' +
+      jumpRow +
       '<div class="team-note" style="margin-top:6px">' + note + '</div>';
   }
 
@@ -311,6 +390,7 @@
       (canRun() ? 'Add players to the pool, then send one up for bidding.' : 'Waiting for the next lot to be sent up.') + '</p></div>';
 
     const lotNo = String(S.history.length + 1).padStart(2, '0');
+    const timerHtml = S.lotEndsAt ? '<div class="timer" id="lotTimer">' + formatCountdown(S.lotEndsAt - Date.now()) + '</div>' : '';
     const steps = S.settings.steps.map(s => '<button class="step" data-step="' + s + '" aria-pressed="' + (S.step === s) + '"' + (canRun() ? '' : ' disabled') + '>+' + AN.money(s) + '</button>').join('');
     const leaderTeam = S.bidder ? teamByKey(S.bidder) : null;
     const leader = leaderTeam
@@ -318,6 +398,7 @@
       : '<div class="leader" style="color:var(--dim)">No bids yet · opens at ' + AN.money(p.base) + '</div>';
 
     return '<div class="lot-no">Lot ' + lotNo + (p.status === 'unsold' ? ' · re-listed' : '') + '</div>' +
+      timerHtml +
       '<div><div class="lot-name">' + AN.esc(p.name) + '</div>' +
       '<div class="lot-role">' + (p.role ? AN.esc(p.role) + ' · ' : '') + 'base ' + AN.money(p.base) + '</div></div>' +
       '<div><div class="price-label">Current bid</div>' +
@@ -356,6 +437,25 @@
     }).join('');
     return '<div class="roster" style="--tc:' + t.color + '"><h3>' + AN.esc(t.name) + '</h3>' +
       '<div class="spent">Spent ' + AN.money(spent) + ' · Left ' + AN.money(S.purse[key]) + '</div>' + rows + '</div>';
+  }
+
+  function formatCountdown(ms){
+    const secs = Math.max(0, Math.ceil(ms / 1000));
+    return String(Math.floor(secs / 60)) + ':' + String(secs % 60).padStart(2, '0');
+  }
+
+  // Runs independently of the 2s network poll so the countdown ticks
+  // smoothly; only touches the timer element directly rather than a full
+  // render(), and is also where auto-resolution actually gets noticed.
+  function tickTimer(){
+    if(!S || !S.lotEndsAt) return;
+    const remaining = S.lotEndsAt - Date.now();
+    if(remaining <= 0){ resolveExpiredLot(); return; }
+    const el = $('lotTimer');
+    if(el){
+      el.textContent = formatCountdown(remaining);
+      el.classList.toggle('low', remaining <= TIMER_EXTEND_WINDOW_SECONDS * 1000);
+    }
   }
 
   function render(){
@@ -399,6 +499,12 @@
     if(b.dataset.seat) return takeSeat(b.dataset.seat);
     if(b.dataset.free) return freeSeat(b.dataset.free);
     if(b.dataset.bid) return bid(b.dataset.bid);
+    if(b.dataset.jump){
+      const input = document.querySelector('[data-jump-input="' + b.dataset.jump + '"]');
+      const raise = input ? parseInt(input.value, 10) : NaN;
+      if(!Number.isFinite(raise) || raise <= 0) return AN.toast('Enter a raise amount first');
+      return bidCustom(b.dataset.jump, raise);
+    }
     if(b.dataset.step){ if(!guard()) return; const v = +b.dataset.step; return tx(() => { S.step = v; }); }
     if(b.dataset.stage) return stageLot(+b.dataset.stage);
     if(b.dataset.remove) return removePlayer(+b.dataset.remove);
@@ -414,6 +520,15 @@
   ['fName','fRole','fBase'].forEach(id => $(id).addEventListener('keydown', e => { if(e.key === 'Enter') addPlayers(); }));
 
   document.addEventListener('keydown', e => {
+    if(e.key !== 'Enter' || !e.target.matches('[data-jump-input]')) return;
+    e.preventDefault();
+    const key = e.target.dataset.jumpInput;
+    const raise = parseInt(e.target.value, 10);
+    if(!Number.isFinite(raise) || raise <= 0) return AN.toast('Enter a raise amount first');
+    bidCustom(key, raise);
+  });
+
+  document.addEventListener('keydown', e => {
     if(!S || e.target.matches('input') || e.metaKey || e.ctrlKey || e.altKey || document.querySelector('.gate:not([hidden])')) return;
     if(/^[1-9]$/.test(e.key)){
       const team = S.teams[parseInt(e.key, 10) - 1];
@@ -426,7 +541,11 @@
     else if(k === 'n'){ e.preventDefault(); nextLot(true); }
   });
 
-  document.addEventListener('visibilitychange', () => { if(!document.hidden) pull(); });
+  // Mobile browsers throttle timers on a backgrounded/locked tab, so the
+  // countdown may not fire the instant it hits zero if nobody's looking.
+  // Catching up on visibility regain means it self-heals within moments of
+  // anyone glancing at their phone, rather than staying stuck expired.
+  document.addEventListener('visibilitychange', () => { if(!document.hidden){ pull(); tickTimer(); } });
 
   window.addEventListener('error', e => {
     $('warnSlot').innerHTML = '<p class="warn">Something broke on this screen: ' +
@@ -447,5 +566,6 @@
     render();
     if(!seat || ((isCaptain() || isMod()) && S.seats[seat] !== me)) openGate();
     setInterval(pull, 2000);
+    setInterval(tickTimer, 500);
   })();
 })();
