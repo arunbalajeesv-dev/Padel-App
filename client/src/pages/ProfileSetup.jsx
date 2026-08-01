@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { createUser, uploadPhoto, ApiError } from '../api/index.js';
+import { createUser, uploadPhoto, getSignupGate, ApiError } from '../api/index.js';
 import { useAuth } from '../auth/authContext.js';
+import { recallInviteCode, forgetInviteCode } from '../auth/inviteCode.js';
 import { fieldErrorsFrom } from './profileErrors.js';
 import { CHENNAI_AREAS } from './chennaiAreas.js';
 import PhotoPicker from './PhotoPicker.jsx';
@@ -34,10 +35,31 @@ export default function ProfileSetup() {
   const [name, setName] = useState('');
   const [gender, setGender] = useState(null);
   const [area, setArea] = useState('');
-  // Only enforced server-side while the community is in a soft-launch window
-  // (see api/index.js's createUser) — shown unconditionally because the
-  // client has no way to know in advance whether it's required right now.
-  const [inviteCode, setInviteCode] = useState('');
+  // Normally captured before phone auth (see auth/SignIn.jsx) and carried
+  // here, so this field stays hidden. It appears only as a fallback: the gate
+  // is on AND nothing was remembered — a returning-looking sign-in that turned
+  // out to have no profile, or a device where sessionStorage is unavailable.
+  // Without it, such a player would be stuck on a form they cannot submit.
+  const [inviteCode, setInviteCode] = useState(recallInviteCode());
+  const [inviteRequired, setInviteRequired] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const { inviteRequired: required } = await getSignupGate();
+        if (alive) setInviteRequired(required);
+      } catch {
+        // Unknown: leave the field hidden. If a code really is needed, the
+        // 403 from createUser surfaces it on the field anyway.
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const askForInvite = inviteRequired && !recallInviteCode();
   const [fieldErrors, setFieldErrors] = useState({});
   const [formError, setFormError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -96,6 +118,10 @@ export default function ProfileSetup() {
         // photoUrl is deliberately absent: it is set by uploading below, once
         // a profile document actually exists for it to attach to.
       });
+
+      // The code has done its job; keeping it around would send a stale value
+      // if this device is later used to create another account.
+      forgetInviteCode();
 
       if (photoFile) {
         // Non-fatal: the account already exists at this point. A failed
@@ -206,26 +232,29 @@ export default function ProfileSetup() {
           {fieldErrors.area && <p className="field-message">{fieldErrors.area}</p>}
         </div>
 
-        <div className="form-group">
-          <label className="form-label" htmlFor="inviteCode">
-            Invite code <span className="form-optional">if you were given one</span>
-          </label>
-          <input
-            id="inviteCode"
-            className="input-field"
-            type="text"
-            autoCapitalize="characters"
-            value={inviteCode}
-            onChange={(e) => setInviteCode(e.target.value)}
-            placeholder="e.g. PADEL-BETA"
-            aria-invalid={Boolean(fieldErrors.inviteCode)}
-          />
-          <p className="form-hint">
-            Only needed if your organizer asked you to use one while the app is
-            still rolling out.
-          </p>
-          {fieldErrors.inviteCode && <p className="field-message">{fieldErrors.inviteCode}</p>}
-        </div>
+        {askForInvite && (
+          <div className="form-group">
+            <label className="form-label" htmlFor="inviteCode">
+              Invite code
+            </label>
+            <input
+              id="inviteCode"
+              className="input-field"
+              type="text"
+              autoCapitalize="characters"
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value)}
+              placeholder="e.g. PADEL-BETA"
+              required
+              aria-invalid={Boolean(fieldErrors.inviteCode)}
+            />
+            <p className="form-hint">
+              We&apos;re still rolling out to the community — ask whoever
+              invited you if you don&apos;t have a code.
+            </p>
+            {fieldErrors.inviteCode && <p className="field-message">{fieldErrors.inviteCode}</p>}
+          </div>
+        )}
 
         {/* Not a field — an explanation for the field players expect and will
             not find. Most rating apps ask you to rate yourself; this one never

@@ -57,7 +57,9 @@ function buildUrl(path, query) {
  *
  * @param {string} path e.g. '/users/me'
  * @param {{method?: string, body?: object|FormData, query?: object, auth?: boolean}} options
- *   `auth: false` skips the bearer header — only health checks need that.
+ *   `auth: false` skips the bearer header, for the genuinely public routes:
+ *   health checks and the pre-phone-auth signup gate, where the caller has no
+ *   token yet by definition.
  *   A `FormData` body (photo upload) is sent as-is, with no `Content-Type` set
  *   — the browser fills in `multipart/form-data` plus the boundary itself;
  *   setting it manually strips that boundary and the server cannot parse it.

@@ -6,6 +6,7 @@ import helmet from 'helmet';
 
 import { healthRouter } from './routes/health.js';
 import { signupRouter, usersRouter } from './routes/users.js';
+import { signupGateRouter } from './routes/signupGate.js';
 import { courtsRouter } from './routes/courts.js';
 import { matchesRouter } from './routes/matches.js';
 import { feedbackRouter } from './routes/feedback.js';
@@ -89,6 +90,13 @@ export function createApp() {
   app.use(healthRouter);
   app.use('/admin-panel', express.static(ADMIN_PANEL_DIR));
   app.use(auctionNightRouter);
+
+  // The invite gate, checked BEFORE phone auth so a newcomer without a code is
+  // turned away before an SMS is sent. Public by necessity — the caller has no
+  // token yet. It is a courtesy, not a control: POST /users below re-checks the
+  // code against a verified token, and that is the enforcement point. See
+  // routes/signupGate.js.
+  app.use(signupGateRouter);
 
   // ONE deliberate exception to blanket auth: POST /users, first-time signup.
   // The caller has a verified token and no profile yet, so requireAuth would

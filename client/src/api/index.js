@@ -14,6 +14,26 @@ import { request } from './client.js';
 export { ApiError } from './ApiError.js';
 export { setTokenProvider } from './client.js';
 
+// --- Signup gate (public — no token, called before phone auth) --------------
+
+/**
+ * Whether signup currently needs an invite code. Read before showing the
+ * join flow so the code step appears only while a soft launch is running —
+ * turning the gate off is an admin action, not a client release.
+ */
+export function getSignupGate() {
+  return request('/signup/gate', { auth: false });
+}
+
+/**
+ * Check an invite code before sending an SMS. Resolves when valid; throws
+ * ApiError 403 when not. This is a courtesy check — POST /users re-checks it
+ * against a verified token, and that is what actually enforces the gate.
+ */
+export function checkInviteCode(code) {
+  return request('/signup/gate', { method: 'POST', body: { code }, auth: false });
+}
+
 // --- Users -----------------------------------------------------------------
 
 /**
