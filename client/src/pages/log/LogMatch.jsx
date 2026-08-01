@@ -33,6 +33,9 @@ export default function LogMatch() {
   const [court, setCourt] = useState(null);
   const [partner, setPartner] = useState(null);
   const [opponents, setOpponents] = useState([null, null]);
+  // { [uid]: 'left' | 'right' } — each player's side, relative to their own
+  // team. Required by POST /matches; see StepPlayers for the pairing rule.
+  const [sides, setSides] = useState({});
   const [sets, setSets] = useState([{ teamA: 0, teamB: 0 }]);
 
   const [submitting, setSubmitting] = useState(false);
@@ -48,9 +51,14 @@ export default function LogMatch() {
   const teamMineNames = teamMine.map((p) => p?.name ?? '');
   const teamOppNames = teamOpp.map((p) => p?.name ?? '');
 
+  const allFour = [me, partner, opponents[0], opponents[1]];
+  const everySideChosen = allFour.every((p) => p && (sides[p.id] === 'left' || sides[p.id] === 'right'));
+
   const canAdvance = {
     1: Boolean(court),
-    2: Boolean(partner && opponents[0] && opponents[1]),
+    // Sides are required by the API, so gate here rather than letting the
+    // player reach Review and fail on submit with a validation error.
+    2: Boolean(partner && opponents[0] && opponents[1]) && everySideChosen,
     3: checkSets(sets).ready,
     4: true,
   }[step];
@@ -81,6 +89,7 @@ export default function LogMatch() {
         sets: sets.map((s) => ({ teamA: s.teamA, teamB: s.teamB })),
         playedAt: new Date().toISOString(),
         idempotencyKey: keyRef.current,
+        sides,
       });
       // 201 (created) and 200 (idempotency replay) both resolve — both are success.
       navigate('/', { replace: true });
@@ -129,9 +138,11 @@ export default function LogMatch() {
             me={me}
             partner={partner}
             opponents={opponents}
-            onChange={({ partner: p, opponents: o }) => {
+            sides={sides}
+            onChange={({ partner: p, opponents: o, sides: s }) => {
               setPartner(p);
               setOpponents(o);
+              setSides(s);
             }}
           />
         )}

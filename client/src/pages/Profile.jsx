@@ -8,6 +8,7 @@ import { memberSince, gamesPlayedLabel, genderLabel } from './profileView.js';
 import { CHENNAI_AREAS } from './chennaiAreas.js';
 import PastMatches from './PastMatches.jsx';
 import PhotoPicker from './PhotoPicker.jsx';
+import SideStats from './SideStats.jsx';
 
 /**
  * Profile: the signed-in player's own details, edit, match history and sign
@@ -262,6 +263,8 @@ export default function Profile() {
           </p>
         )}
       </section>
+
+      <SideStats stats={profile.sideStats} />
 
       <section className="profile-section">
         <h2 className="section-title">Past matches</h2>

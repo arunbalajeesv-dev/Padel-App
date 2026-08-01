@@ -6,6 +6,11 @@ import { searchUsers } from '../../api/index.js';
  * A debounced player search that fills one slot. Results come from searchUsers,
  * which returns name, area and display rating only.
  *
+ * An empty query lists the WHOLE roster (scrollable) rather than showing
+ * nothing until you type — searchUsers('') returns everyone, sorted by name,
+ * for exactly this. Cheap at community scale (~100 players); see
+ * usersService.searchUsers.
+ *
  * `excludeIds` are players already chosen — the same person cannot be picked
  * twice, so they are filtered out of the results rather than shown-and-rejected.
  */
@@ -17,11 +22,6 @@ export default function PlayerSearch({ label, excludeIds, onPick, onCancel }) {
 
   useEffect(() => {
     const q = query.trim();
-    if (q.length < 2) {
-      setResults([]);
-      setLoading(false);
-      return undefined;
-    }
 
     setLoading(true);
     const mine = ++seq.current;
@@ -60,8 +60,10 @@ export default function PlayerSearch({ label, excludeIds, onPick, onCancel }) {
       />
 
       {loading && <p className="search-status">Searching…</p>}
-      {!loading && query.trim().length >= 2 && results.length === 0 && (
-        <p className="search-status">No players found.</p>
+      {!loading && results.length === 0 && (
+        <p className="search-status">
+          {query.trim() ? 'No players found.' : 'No other players yet.'}
+        </p>
       )}
 
       <div className="player-results">

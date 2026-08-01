@@ -38,6 +38,7 @@
       <section id="dashboardView" hidden>
         <nav class="tabs" aria-label="Admin sections">
           <button class="tab-btn" data-tab="stats" type="button">Stats</button>
+          <button class="tab-btn" data-tab="players" type="button">Players</button>
           <button class="tab-btn" data-tab="disputes" type="button">
             Disputes <span id="disputeBadge" class="badge" hidden></span>
           </button>
@@ -49,6 +50,11 @@
 
         <section id="statsTab" class="tab-panel">
           <div id="statsContent">Loading…</div>
+        </section>
+
+        <section id="playersTab" class="tab-panel" hidden>
+          <input id="playerSearch" class="field" style="max-width:320px" placeholder="Search by name or phone…" autocomplete="off">
+          <div id="playersContent">Loading…</div>
         </section>
 
         <section id="disputesTab" class="tab-panel" hidden>

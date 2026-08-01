@@ -123,6 +123,37 @@ describe('GET /admin/stats', () => {
   });
 });
 
+describe('GET /admin/players', () => {
+  it('returns every player, alphabetically, WITH phone — the one client this is allowed on', async () => {
+    db = makeFirestore({
+      ...baseDocs(),
+      'users/alice': userDoc({ name: 'Alice', phone: '+919000000001', area: 'Adyar' }),
+      'users/bob': userDoc({ name: 'Bob', phone: '+919000000002' }),
+    });
+
+    const { status, body } = await get('/admin/players');
+
+    expect(status).toBe(200);
+    expect(body.players.map((p) => p.name)).toEqual(['Admin', 'Alice', 'Bob']); // alphabetical
+    const alice = body.players.find((p) => p.name === 'Alice');
+    expect(alice.phone).toBe('+919000000001');
+    expect(alice.area).toBe('Adyar');
+    expect(alice.ratingDisplay).toBeCloseTo(2.333, 2); // (1500-1000)/(2500-1000)*7, per the config fixture
+  });
+
+  it('never includes raw rating internals or trustScore', async () => {
+    db = makeFirestore(baseDocs());
+    const { body } = await get('/admin/players');
+
+    const json = JSON.stringify(body);
+    expect(json).not.toMatch(/"value"|"rd"|"sigma"|"trustScore"/);
+  });
+
+  it('403s a non-admin', async () => {
+    expect((await get('/admin/players', { token: 'plain' })).status).toBe(403);
+  });
+});
+
 describe('POST /admin/anchors', () => {
   it('sets and unsets the isAnchor flag', async () => {
     const set = await post('/admin/anchors', { body: { userId: 'alice', isAnchor: true } });

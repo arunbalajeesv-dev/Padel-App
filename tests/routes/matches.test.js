@@ -96,6 +96,7 @@ const VALID_BODY = {
   sets: [{ teamA: 6, teamB: 4 }, { teamA: 6, teamB: 3 }],
   playedAt: '2026-07-17T10:00:00.000Z',
   idempotencyKey: KEY,
+  sides: { me: 'left', a2: 'right', b1: 'left', b2: 'right' },
 };
 
 /** What Firestore throws when create() hits an existing document. */
@@ -160,6 +161,63 @@ describe('POST /matches — happy path', () => {
 
     expect(status).toBe(401);
     expect(matchesCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /matches — court sides', () => {
+  it('stores the reported sides for all four players', async () => {
+    await post('/matches', { body: VALID_BODY });
+
+    expect(matchesCreate.mock.calls[0][0].sides).toEqual({
+      me: 'left', a2: 'right', b1: 'left', b2: 'right',
+    });
+  });
+
+  it('400s when sides is missing entirely — it is required', async () => {
+    const { sides, ...withoutSides } = VALID_BODY;
+    const { status, body } = await post('/matches', { body: withoutSides });
+
+    expect(status).toBe(400);
+    expect(body.errors.join(' ')).toMatch(/sides/);
+    expect(matchesCreate).not.toHaveBeenCalled();
+  });
+
+  it('400s when a player is missing from sides', async () => {
+    const { status, body } = await post('/matches', {
+      body: { ...VALID_BODY, sides: { me: 'left', a2: 'right', b1: 'left' } },
+    });
+
+    expect(status).toBe(400);
+    expect(body.errors.join(' ')).toMatch(/sides\.b2/);
+  });
+
+  it('400s on a side value that is not left or right', async () => {
+    const { status, body } = await post('/matches', {
+      body: { ...VALID_BODY, sides: { ...VALID_BODY.sides, b2: 'middle' } },
+    });
+
+    expect(status).toBe(400);
+    expect(body.errors.join(' ')).toMatch(/sides\.b2/);
+  });
+
+  it('400s when teammates claim the same side — one plays left, one right', async () => {
+    const { status, body } = await post('/matches', {
+      body: { ...VALID_BODY, sides: { ...VALID_BODY.sides, me: 'left', a2: 'left' } },
+    });
+
+    expect(status).toBe(400);
+    expect(body.errors.join(' ')).toMatch(/teamA.*same side/);
+    expect(matchesCreate).not.toHaveBeenCalled();
+  });
+
+  it('allows both teams to use the same left/right split — sides are per-team, not absolute', async () => {
+    // teamA and teamB each have a left and a right player. These are relative
+    // to each team, so this is the NORMAL case, not a conflict.
+    const { status } = await post('/matches', {
+      body: { ...VALID_BODY, sides: { me: 'left', a2: 'right', b1: 'left', b2: 'right' } },
+    });
+
+    expect(status).toBe(201);
   });
 });
 
@@ -281,7 +339,14 @@ describe('POST /matches — participants', () => {
 
   it('400s when a player does not exist', async () => {
     const { status, body } = await post('/matches', {
-      body: { ...VALID_BODY, teamB: ['ghost', 'b2'] },
+      body: {
+        ...VALID_BODY,
+        teamB: ['ghost', 'b2'],
+        // A valid-shaped sides map for ghost/b2 — this test is about the
+        // unknown-player check, not sides validation, so it should not trip
+        // on a coincidentally-missing sides entry for 'ghost'.
+        sides: { ...VALID_BODY.sides, ghost: 'left' },
+      },
     });
 
     expect(status).toBe(400);

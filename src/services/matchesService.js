@@ -38,11 +38,54 @@ export const CREATABLE_FIELDS = Object.freeze([
   'sets',
   'playedAt',
   'idempotencyKey',
+  'sides',
 ]);
 
 const isUid = (v) => typeof v === 'string' && v.trim().length > 0;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export const SIDES = Object.freeze(['left', 'right']);
+
+/**
+ * Which side of the court each of the four players played — relative to
+ * their OWN team (like deuce/ad in tennis doubles), not an absolute court
+ * position. The reporter asserts all four, the same trust level as the
+ * score and both rosters: one team's confirmation is what gates the
+ * rating, not per-fact agreement from everyone named. Frozen on the match
+ * once created, same as `pairingType` — an audit record of what fed an
+ * already-applied result, never recomputed.
+ *
+ * Only checked once teamA/teamB themselves are already known-good shapes
+ * (two-uid arrays) — those errors are reported by the caller separately, so
+ * this does not duplicate them when teamA/teamB are malformed.
+ */
+function validateSides(body) {
+  const teamA = Array.isArray(body.teamA) && body.teamA.length === 2 ? body.teamA : null;
+  const teamB = Array.isArray(body.teamB) && body.teamB.length === 2 ? body.teamB : null;
+  if (!teamA || !teamB) return [];
+
+  const sides = body.sides;
+  if (typeof sides !== 'object' || sides === null || Array.isArray(sides)) {
+    return ['sides must be an object mapping each of the four player uids to "left" or "right".'];
+  }
+
+  const errors = [];
+  for (const uid of [...teamA, ...teamB]) {
+    if (!SIDES.includes(sides[uid])) {
+      errors.push(`sides.${uid} must be "left" or "right".`);
+    }
+  }
+  for (const [label, [a, b]] of [['teamA', teamA], ['teamB', teamB]]) {
+    // a !== b: two DIFFERENT teammates can't share a side. The same uid
+    // twice is a duplicate-player bug — validateDistinct's job, not this
+    // check's, and reporting it here too would bury that clearer message.
+    if (a !== b && SIDES.includes(sides[a]) && sides[a] === sides[b]) {
+      errors.push(`${label}'s two players cannot both play the same side.`);
+    }
+  }
+  return errors;
+}
 
 /** Shape validation. Score legality is checked separately by the validator. */
 export function validateShape(body) {
@@ -71,6 +114,8 @@ export function validateShape(body) {
   if (!isUid(b.idempotencyKey) || !UUID_RE.test(b.idempotencyKey)) {
     errors.push('idempotencyKey must be a UUID, generated fresh per submit action.');
   }
+
+  errors.push(...validateSides(b));
 
   return errors;
 }
@@ -154,6 +199,7 @@ export function toMatchView(match) {
     gamesA: match.gamesA,
     gamesB: match.gamesB,
     winner: match.winner,
+    sides: match.sides,
     format: match.format,
     playedAt: match.playedAt,
     status: match.status,
@@ -307,6 +353,57 @@ export async function listRecentForPlayer(uid, { limit = 10 } = {}) {
   return { matches: matches.map(toMatchView), ...names };
 }
 
+const MIN_MATCHES_PER_SIDE = 3;
+
+/**
+ * Per-side win/loss counts from this player's CONFIRMED matches only —
+ * pending/disputed/rejected matches carry no rating signal and are excluded
+ * for the same reason. Matches predating this feature (no `sides` recorded)
+ * are silently skipped rather than guessed at.
+ *
+ * Derived on read, like trustScore — never stored, so retuning what counts
+ * as "enough data" (see dominantSide) needs no backfill.
+ */
+export async function sideStats(uid) {
+  const snap = await getFirestore()
+    .collection(MATCHES_COLLECTION)
+    .where('players', 'array-contains', uid)
+    .where('status', '==', STATUS.CONFIRMED)
+    .get();
+
+  const counts = { left: { matches: 0, wins: 0 }, right: { matches: 0, wins: 0 } };
+
+  for (const doc of snap.docs) {
+    const m = doc.data();
+    const side = m.sides?.[uid];
+    if (!SIDES.includes(side)) continue;
+
+    const onTeamA = m.teamA.includes(uid);
+    const won = (onTeamA && m.winner === 'A') || (!onTeamA && m.winner === 'B');
+
+    counts[side].matches += 1;
+    if (won) counts[side].wins += 1;
+  }
+
+  return counts;
+}
+
+/**
+ * Which side this player wins more often on — only once there is enough
+ * data on BOTH sides to say so. A "you're better on the left" claim from
+ * one lucky match is a stat pretending to be a fact; a tie says nothing
+ * either way. Pure, so it is testable without a database.
+ */
+export function dominantSide(counts) {
+  const { left, right } = counts;
+  if (left.matches < MIN_MATCHES_PER_SIDE || right.matches < MIN_MATCHES_PER_SIDE) return null;
+
+  const leftRate = left.wins / left.matches;
+  const rightRate = right.wins / right.matches;
+  if (leftRate === rightRate) return null;
+  return leftRate > rightRate ? 'left' : 'right';
+}
+
 export async function findById(id) {
   const snap = await getFirestore().collection(MATCHES_COLLECTION).doc(id).get();
   return snap.exists ? { id: snap.id, ...snap.data() } : null;
@@ -360,6 +457,7 @@ export async function createMatch({ body, reporterUid, validated }) {
     pairs: [pairKey(...body.teamA), pairKey(...body.teamB)],
     matchupKey: matchupKeyFor(players),
     sets: body.sets,
+    sides: { ...body.sides },
 
     // Derived from the score. A client-supplied format is never read.
     format: validated.format,

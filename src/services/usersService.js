@@ -144,6 +144,43 @@ export function toPlayerView(user, config) {
   };
 }
 
+/**
+ * Strip a user document for the ADMIN player list — the one place phone
+ * numbers are ever exposed to a client, because an admin legitimately needs
+ * to reach people. Still an allowlist, and still no rating internals
+ * (`value`, `rd`, `sigma`) or `trustScore` — the root CLAUDE.md's "no rating
+ * math ships to the browser" applies here too; trustScore already has its
+ * own admin endpoint (GET /admin/trust) rather than living on this list.
+ */
+export function toAdminListView(user, config) {
+  return {
+    id: user.id,
+    name: user.name,
+    phone: user.phone,
+    gender: user.gender,
+    area: user.area ?? null,
+    ratingDisplay: toDisplayRating(user.rating.value, config),
+    status: user.status,
+    gamesPlayed: user.gamesPlayed,
+    isAdmin: user.isAdmin === true,
+    isAnchor: user.isAnchor === true,
+    createdAt: user.createdAt,
+    lastActiveAt: user.lastActiveAt,
+  };
+}
+
+/**
+ * Every player, full collection read. Matches adminStats' approach (see
+ * statsService.js) rather than an `orderBy` — a query ordered on a field some
+ * legacy doc lacks (e.g. `nameLower` pre-backfill) silently EXCLUDES that doc
+ * from the results, which is the last thing an admin roster should do.
+ * Sorting happens in memory instead, on the caller's side.
+ */
+export async function listAllUsers() {
+  const snap = await getFirestore().collection(USERS_COLLECTION).get();
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
 /** Validation shared by create and patch. Returns an array of messages. */
 function validateProfile(input, { partial }) {
   const errors = [];
@@ -321,7 +358,15 @@ export async function setAnchor(uid, isAnchor) {
  */
 export async function searchUsers(query, { limit = 20 } = {}) {
   const q = String(query ?? '').trim().toLowerCase();
-  if (q.length === 0) return [];
+
+  // No filter typed yet: the partner/opponent picker wants a full, scrollable
+  // roster to browse rather than an empty screen demanding a search first —
+  // see PlayerSearch.jsx. Cheap at ~100 players; revisit with a real limit if
+  // the club outgrows that.
+  if (q.length === 0) {
+    const all = await listAllUsers();
+    return all.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
+  }
 
   const snap = await getFirestore()
     .collection(USERS_COLLECTION)

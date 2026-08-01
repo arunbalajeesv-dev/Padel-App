@@ -4,7 +4,7 @@ import multer from 'multer';
 import { requireVerifiedToken, requireAdmin } from '../middleware/auth.js';
 import { getConfig } from '../services/configService.js';
 import * as users from '../services/usersService.js';
-import { listRecentForPlayer } from '../services/matchesService.js';
+import { listRecentForPlayer, sideStats, dominantSide } from '../services/matchesService.js';
 import { validatePhoto, uploadProfilePhoto, deleteProfilePhoto } from '../services/photoService.js';
 import { hasActiveCode, findActiveCode } from '../services/inviteCodesService.js';
 
@@ -98,10 +98,25 @@ signupRouter.post('/users', requireVerifiedToken, async (req, res, next) => {
 /** Everything here is mounted BELOW the blanket requireAuth. */
 export const usersRouter = Router();
 
+/**
+ * `sideStats` is derived on read from CONFIRMED matches, the same discipline
+ * as trustScore — never a stored field, so retuning the minimum-sample rule
+ * in matchesService.dominantSide needs no backfill. It is a stat, not a
+ * rating: it feeds no delta, no RD, nothing in matchesService.CREATABLE_FIELDS
+ * reads it back. See matchesService.sideStats / dominantSide.
+ */
+async function sideStatsView(uid) {
+  const counts = await sideStats(uid);
+  return { ...counts, dominantSide: dominantSide(counts) };
+}
+
 usersRouter.get('/users/me', async (req, res, next) => {
   try {
     const config = await getConfig();
-    return res.json(users.toSelfView(req.user, config));
+    return res.json({
+      ...users.toSelfView(req.user, config),
+      sideStats: await sideStatsView(req.uid),
+    });
   } catch (err) {
     return next(err);
   }
@@ -235,12 +250,14 @@ usersRouter.patch('/users/:id', requireAdmin, async (req, res, next) => {
   }
 });
 
+/**
+ * A missing/empty `q` is no longer a 400 — it means "list everyone", which
+ * PlayerSearch.jsx uses to show a full scrollable roster before a player has
+ * typed anything, rather than a blank screen demanding a search first.
+ */
 usersRouter.get('/users/search', async (req, res, next) => {
   try {
-    const q = req.query.q ?? req.query.query;
-    if (!q || String(q).trim().length === 0) {
-      return res.status(400).json({ error: 'Bad Request', reason: 'q is required.' });
-    }
+    const q = req.query.q ?? req.query.query ?? '';
 
     const config = await getConfig();
     const found = await users.searchUsers(q);
@@ -267,7 +284,10 @@ usersRouter.get('/users/:id', async (req, res, next) => {
     }
 
     const config = await getConfig();
-    return res.json(users.toPlayerView(target, config));
+    return res.json({
+      ...users.toPlayerView(target, config),
+      sideStats: await sideStatsView(req.params.id),
+    });
   } catch (err) {
     return next(err);
   }

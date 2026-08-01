@@ -6,8 +6,10 @@ const userCreate = vi.fn();
 const userUpdate = vi.fn();
 const configGet = vi.fn();
 const searchGet = vi.fn();
+const usersListGet = vi.fn();
 const inviteCodesWhereGet = vi.fn();
 const inviteCodesDocGet = vi.fn();
+const matchesWhereGet = vi.fn();
 
 // Captures the search query shape so tests can assert it folds case correctly.
 const searchQuery = {};
@@ -39,8 +41,17 @@ vi.mock('../../src/config/firebase.js', () => ({
           doc: () => ({ get: inviteCodesDocGet }),
         };
       }
+      // GET /users/me and /users/:id both merge in sideStats — see
+      // sideStatsView in routes/users.js — which reads confirmed matches.
+      if (name === 'matches') {
+        return { where: () => ({ where: () => ({ get: matchesWhereGet }) }) };
+      }
       return {
         doc: () => ({ get: userGet, create: userCreate, update: userUpdate }),
+        // listAllUsers() reads the whole collection directly — used both by
+        // GET /admin/players and by searchUsers('') for the "list everyone"
+        // case (see below).
+        get: usersListGet,
         orderBy: (field) => {
           searchQuery.orderBy = field;
           return {
@@ -138,6 +149,8 @@ beforeEach(() => {
   userCreate.mockResolvedValue({});
   userUpdate.mockResolvedValue({});
   searchGet.mockResolvedValue({ docs: [] });
+  usersListGet.mockResolvedValue({ docs: [] });
+  matchesWhereGet.mockResolvedValue({ docs: [] });
   // No active invite codes by default — the soft-launch gate is data-driven
   // (see inviteCodesService.hasActiveCode), so an empty collection means
   // signup is open. Tests that need the gate active override this.
@@ -611,8 +624,18 @@ describe('GET /users/search', () => {
     expect(JSON.stringify(body)).not.toMatch(/"phone"|"value"|"sigma"|"trustScore"|"status"/);
   });
 
-  it('400s without a query', async () => {
-    expect((await call('GET', '/users/search', { token: 'good' })).status).toBe(400);
+  it('lists everyone, sorted by name, when q is missing — not a 400', async () => {
+    usersListGet.mockResolvedValue({
+      docs: [
+        { id: 'uid-z', data: () => ({ ...EXISTING, name: 'Zara' }) },
+        { id: 'uid-a', data: () => ({ ...EXISTING, name: 'Anita' }) },
+      ],
+    });
+
+    const { status, body } = await call('GET', '/users/search', { token: 'good' });
+
+    expect(status).toBe(200);
+    expect(body.results.map((r) => r.name)).toEqual(['Anita', 'Zara']); // sorted, not insertion order
   });
 
   it('401s without a token', async () => {

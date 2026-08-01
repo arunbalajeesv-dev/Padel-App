@@ -47,11 +47,26 @@ body {
 
 /* --- App shell ------------------------------------------------------------ */
 
+/*
+ * `height`, not `min-height` — this is what actually makes `.app-content`
+ * the app's ONE internal scroll region. `min-height` only sets a floor: on
+ * content taller than the visible viewport (a smaller phone, or simply a
+ * long enough leaderboard/court list), the shell was free to grow past the
+ * real viewport and hand scrolling to the page itself instead of to
+ * `.app-content`'s own `overflow-y: auto`. That silently breaks
+ * `position: sticky` anywhere in the tree — sticky only tracks the
+ * viewport correctly when its scrolling ancestor genuinely IS the thing
+ * that scrolls, which requires that ancestor's own box to be clamped.
+ * `100dvh` (dynamic viewport height) is the correct unit for a mobile
+ * browser's address bar showing/hiding; `100vh` first is the fallback for
+ * browsers that don't understand `dvh` — the later, valid declaration wins.
+ */
 .app-shell {
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
 }
 
 .app-content {
@@ -729,9 +744,22 @@ body {
   padding: 12px 20px 20px;
 }
 
+/*
+ * Was a plain flow item after `.log-content`, so a long unfiltered list (e.g.
+ * every court, before typing a filter) pushed Continue/Submit far below the
+ * fold with nothing pinning it — a player had to know to keep scrolling to
+ * find it. `position: sticky; bottom: 0` keeps it flush above the fixed
+ * `.tab-bar` (its resting position lines up exactly with `.app-content`'s
+ * own reserved padding, same reasoning as `.sticky-user-card` above)
+ * regardless of how tall the step's content grows.
+ */
 .log-footer {
   padding: 16px 20px calc(20px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid #e0e0e0;
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  z-index: 1;
 }
 
 .step {
@@ -948,6 +976,77 @@ body {
   min-width: 44px;
   min-height: 44px;
   cursor: pointer;
+}
+
+/* Left/right side picker, one per player in StepPlayers. `margin-left: auto`
+   pushes it to the right of the player's name, before the remove button. */
+.side-picker {
+  display: flex;
+  margin-left: auto;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.side-option {
+  min-width: 36px;
+  min-height: 36px;
+  border: none;
+  border-right: 1px solid #ccc;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  color: #666;
+  cursor: pointer;
+}
+
+.side-option:last-child {
+  border-right: none;
+}
+
+.side-option-active {
+  background: var(--navy);
+  color: #fff;
+}
+
+/* Dominant-side stat on the profile screens. */
+.side-stats {
+  display: flex;
+  gap: 12px;
+}
+
+.side-stat {
+  flex: 1;
+  padding: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  text-align: center;
+}
+
+.side-stat-dominant {
+  border-color: var(--navy);
+  background: #f4f7ff;
+}
+
+.side-stat-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #777;
+}
+
+.side-stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.side-stat-sub {
+  font-size: 12px;
+  color: #777;
+  margin-top: 2px;
 }
 
 .player-search-top {
@@ -1490,7 +1589,19 @@ body {
   flex-direction: column;
 }
 
-/* Sticky current-user (placement) card */
+/*
+ * Sticky current-user (placement) card. The class name and the component's
+ * own docstring both promised "pinned at the bottom", but nothing here ever
+ * set real sticky positioning — it only LOOKED pinned because `.leaderboard`
+ * gave itself `min-height: calc(100vh - 80px)`, and that 80px did not
+ * account for `env(safe-area-inset-bottom)`, unlike `.app-content`'s own
+ * padding-bottom (which reserves `80px + safe-area-inset-bottom` for the
+ * fixed `.tab-bar`). On a notched/home-indicator phone the two disagreed, so
+ * this card's bottom slice rendered underneath the tab bar. Real `position:
+ * sticky` sidesteps the mismatch entirely — the browser sticks it to
+ * `.app-content`'s actual padding edge, safe-area included, with no manual
+ * arithmetic to keep in sync.
+ */
 .sticky-user-card {
   display: flex;
   align-items: center;
@@ -1504,6 +1615,9 @@ body {
   font: inherit;
   text-align: left;
   cursor: pointer;
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
 }
 
 .placement-label {

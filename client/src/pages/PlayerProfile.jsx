@@ -6,6 +6,7 @@ import { tierLabel } from './homeView.js';
 import { memberSince, gamesPlayedLabel, genderLabel } from './profileView.js';
 import PastMatches from './PastMatches.jsx';
 import BackButton from './BackButton.jsx';
+import SideStats from './SideStats.jsx';
 
 /**
  * Another player's profile, reached by tapping a row on the Leaderboard.
@@ -123,6 +124,8 @@ function ProfileContent({ profile, matchesLoad }) {
           </div>
         </dl>
       </section>
+
+      <SideStats stats={profile.sideStats} />
 
       <section className="profile-section">
         <h2 className="section-title">Past matches</h2>

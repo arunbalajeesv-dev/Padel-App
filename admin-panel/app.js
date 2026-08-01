@@ -199,6 +199,7 @@ let dashboardInitialised = false;
 
 function initDashboard() {
   loadStats();
+  loadPlayers();
   loadDisputes();
   loadHistory();
   loadAlerts();
@@ -214,6 +215,7 @@ function initDashboard() {
   selectTab('stats');
   initAuctionForm();
   initInviteForm();
+  initPlayerSearch();
 }
 
 function selectTab(name) {
@@ -273,6 +275,58 @@ function renderStats(stats) {
     <div class="histogram">${bars}</div>
     <div class="histogram-labels">${labels}</div>
   `;
+}
+
+// --- Players (the full roster, WITH phone — admin-only) ---------------------
+
+let allPlayers = [];
+
+async function loadPlayers() {
+  const el = $('playersContent');
+  try {
+    const { players } = await apiFetch('/admin/players');
+    allPlayers = players;
+    el.innerHTML = renderPlayersTable(players);
+  } catch (err) {
+    el.innerHTML = `<p class="error">Could not load players: ${escapeHtml(err.message)}</p>`;
+  }
+}
+
+function renderPlayersTable(players) {
+  if (players.length === 0) {
+    return '<p class="empty-note">No players yet.</p>';
+  }
+  const rows = players
+    .map(
+      (p) => `
+        <tr>
+          <td>${escapeHtml(p.name)}${p.isAdmin ? ' <span class="tag">Admin</span>' : ''}</td>
+          <td style="font-family:monospace">${escapeHtml(p.phone ?? '—')}</td>
+          <td>${escapeHtml(p.gender ?? '')}</td>
+          <td>${escapeHtml(p.area ?? '—')}</td>
+          <td>${escapeHtml(p.status)}</td>
+          <td>${p.gamesPlayed}</td>
+          <td>${p.ratingDisplay.toFixed(1)}</td>
+        </tr>
+      `,
+    )
+    .join('');
+  return `
+    <table>
+      <thead><tr><th>Name</th><th>Phone</th><th>Gender</th><th>Area</th><th>Status</th><th>Games</th><th>Rating</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+function initPlayerSearch() {
+  $('playerSearch').addEventListener('input', (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    const filtered = q
+      ? allPlayers.filter((p) => (p.name ?? '').toLowerCase().includes(q) || (p.phone ?? '').includes(q))
+      : allPlayers;
+    $('playersContent').innerHTML = renderPlayersTable(filtered);
+  });
 }
 
 // --- Disputes -----------------------------------------------------------

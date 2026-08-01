@@ -164,9 +164,12 @@ export function newIdempotencyKey() {
  * of sets; sending one is a 400, because a client-selectable multiplier would be
  * a way to game the rating.
  *
+ * `sides` maps each of the four uids to 'left' or 'right' — the side that
+ * player played, relative to their OWN team. Required; teammates must differ.
+ *
  * @param {{courtId: string, teamA: string[], teamB: string[],
  *          sets: {teamA: number, teamB: number}[], playedAt: string,
- *          idempotencyKey: string}} match
+ *          idempotencyKey: string, sides: Record<string,'left'|'right'>}} match
  */
 export async function createMatch(match) {
   // async so this REJECTS rather than throwing synchronously — every other

@@ -11,7 +11,7 @@ import { getConfig } from '../services/configService.js';
 import * as disputes from '../services/disputesService.js';
 import * as invites from '../services/inviteCodesService.js';
 import * as courts from '../services/courtsService.js';
-import { setAnchor, findById as findUser } from '../services/usersService.js';
+import { setAnchor, findById as findUser, listAllUsers, toAdminListView } from '../services/usersService.js';
 import { weeklyGainAlerts } from '../services/alertsService.js';
 import { adminStats } from '../services/statsService.js';
 import { trustLeaderboard, trustFor } from '../services/trustService.js';
@@ -204,6 +204,21 @@ adminRouter.post('/auctions', async (req, res, next) => {
 
     const created = await auctionNight.createAuction(value);
     return res.status(201).json({ auction: created });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// --- Player roster (internal, admin-only — the one place phone appears) ----
+
+adminRouter.get('/players', async (req, res, next) => {
+  try {
+    const config = await getConfig();
+    const all = await listAllUsers();
+    const players = all
+      .map((u) => toAdminListView(u, config))
+      .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
+    return res.json({ players });
   } catch (err) {
     return next(err);
   }
