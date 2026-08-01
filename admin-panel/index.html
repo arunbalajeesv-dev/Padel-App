@@ -44,6 +44,7 @@
           <button class="tab-btn" data-tab="history" type="button">History</button>
           <button class="tab-btn" data-tab="alerts" type="button">Weekly-gain alerts</button>
           <button class="tab-btn" data-tab="auctions" type="button">Auction Night</button>
+          <button class="tab-btn" data-tab="invites" type="button">Invite Codes</button>
         </nav>
 
         <section id="statsTab" class="tab-panel">
@@ -94,6 +95,25 @@
 
           <h3>All auctions</h3>
           <div id="auctionsContent">Loading…</div>
+        </section>
+
+        <section id="invitesTab" class="tab-panel" hidden>
+          <p class="card-meta" id="gateStatus"></p>
+
+          <div class="panel" style="max-width:420px;margin-bottom:24px">
+            <h3 style="margin-top:0">New invite code</h3>
+            <form id="inviteForm">
+              <label class="field-label" for="invCode">Code</label>
+              <input id="invCode" class="field" placeholder="e.g. PADEL-BETA" maxlength="32" style="text-transform:uppercase">
+              <label class="field-label" for="invPhase">Phase label</label>
+              <input id="invPhase" class="field" placeholder="e.g. soft-launch" maxlength="40">
+              <button type="submit" class="btn-primary" id="invCreateBtn">Create code</button>
+              <p class="error" id="invFormErr" hidden></p>
+            </form>
+          </div>
+
+          <h3>All codes</h3>
+          <div id="invitesContent">Loading…</div>
         </section>
       </section>
     </div>

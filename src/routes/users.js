@@ -6,6 +6,7 @@ import { getConfig } from '../services/configService.js';
 import * as users from '../services/usersService.js';
 import { listRecentForPlayer } from '../services/matchesService.js';
 import { validatePhoto, uploadProfilePhoto, deleteProfilePhoto } from '../services/photoService.js';
+import { hasActiveCode, findActiveCode } from '../services/inviteCodesService.js';
 
 /** Buffered in memory, never written to disk — 5MB matches validatePhoto's cap. */
 const photoUpload = multer({
@@ -57,6 +58,20 @@ signupRouter.post('/users', requireVerifiedToken, async (req, res, next) => {
     }
     if (errors.length > 0) {
       return res.status(400).json({ error: 'Bad Request', errors });
+    }
+
+    // Soft-launch gate: while at least one invite code is active, signup
+    // needs one. The moment none are active (deactivated/deleted via the
+    // admin panel), this falls through and signup is open — see
+    // inviteCodesService.hasActiveCode for why that's the whole mechanism.
+    if (await hasActiveCode()) {
+      const code = await findActiveCode(req.body?.inviteCode);
+      if (!code) {
+        return res.status(403).json({
+          error: 'Forbidden',
+          reason: 'a valid invite code is required to sign up right now',
+        });
+      }
     }
 
     const config = await getConfig();

@@ -10,7 +10,7 @@
  */
 
 /** Fields this form can actually show an error against. */
-const FIELDS = ['name', 'gender', 'area', 'photoUrl'];
+const FIELDS = ['name', 'gender', 'area', 'photoUrl', 'inviteCode'];
 
 const NETWORK_MESSAGE =
   "Can't reach the server. Check your connection and try again.";
@@ -52,6 +52,16 @@ export function fieldErrorsFrom(error) {
     }
 
     return { fieldErrors, formError };
+  }
+
+  // The soft-launch invite gate (POST /users) also 403s — distinguish it
+  // from an expired session so the player sees "wrong code" under the field
+  // that caused it, not a misleading "sign in again".
+  if (error?.status === 403 && /invite code/i.test(error?.reason ?? '')) {
+    return {
+      fieldErrors: { inviteCode: "That invite code isn't valid — check with whoever invited you." },
+      formError: null,
+    };
   }
 
   if (error?.status === 401 || error?.status === 403) {

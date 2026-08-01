@@ -203,6 +203,7 @@ function initDashboard() {
   loadHistory();
   loadAlerts();
   loadAuctions();
+  loadInvites();
 
   if (dashboardInitialised) return;
   dashboardInitialised = true;
@@ -212,6 +213,7 @@ function initDashboard() {
   });
   selectTab('stats');
   initAuctionForm();
+  initInviteForm();
 }
 
 function selectTab(name) {
@@ -594,6 +596,118 @@ function renderAuctionsList(auctions) {
     return '<p class="empty-note">No auctions yet — create one above.</p>';
   }
   return `<div class="card-list">${auctions.map(renderAuctionCard).join('')}</div>`;
+}
+
+// --- Invite codes (the soft-launch gate) -------------------------------
+//
+// Signup requires one of these while ANY code is active — see
+// src/services/inviteCodesService.js (hasActiveCode) and signupRouter. There
+// is no separate on/off setting: deactivating or deleting the last active
+// code IS how the soft-launch restriction ends.
+
+function initInviteForm() {
+  const form = $('inviteForm');
+  const errEl = $('invFormErr');
+  const createBtn = $('invCreateBtn');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    showError(errEl, '');
+    const code = $('invCode').value.trim();
+    const phase = $('invPhase').value.trim();
+
+    createBtn.disabled = true;
+    try {
+      await apiFetch('/admin/invite-codes', { method: 'POST', body: { code, phase, active: true } });
+      form.reset();
+      loadInvites();
+    } catch (err) {
+      showError(errEl, err.message || 'Could not create that code.');
+    } finally {
+      createBtn.disabled = false;
+    }
+  });
+}
+
+async function loadInvites() {
+  const el = $('invitesContent');
+  try {
+    const { inviteCodes } = await apiFetch('/admin/invite-codes');
+    renderGateStatus(inviteCodes);
+    el.innerHTML = renderInvitesList(inviteCodes);
+    wireInviteRowActions();
+  } catch (err) {
+    el.innerHTML = `<p class="error">Could not load invite codes: ${escapeHtml(err.message)}</p>`;
+  }
+}
+
+function renderGateStatus(codes) {
+  const gateOpen = !codes.some((c) => c.active);
+  $('gateStatus').textContent = gateOpen
+    ? 'Signup is currently OPEN to anyone — no active codes.'
+    : 'Signup currently REQUIRES one of the active codes below.';
+}
+
+function renderInvitesList(codes) {
+  if (codes.length === 0) {
+    return '<p class="empty-note">No invite codes yet — signup is open to anyone until you create one.</p>';
+  }
+  const rows = codes
+    .map(
+      (c) => `
+        <tr data-code-id="${escapeHtml(c.id)}">
+          <td style="font-family:monospace;font-weight:700">${escapeHtml(c.code)}</td>
+          <td>${escapeHtml(c.phase)}</td>
+          <td>${c.active ? '<span class="tag tag-review">Active</span>' : '<span class="tag">Inactive</span>'}</td>
+          <td>${formatDate(c.createdAt)}</td>
+          <td>
+            <button class="btn-small" data-toggle-active="1">${c.active ? 'Deactivate' : 'Activate'}</button>
+            <button class="btn-small btn-small-danger" data-delete-code="1">Delete</button>
+          </td>
+        </tr>
+      `,
+    )
+    .join('');
+  return `
+    <table>
+      <thead><tr><th>Code</th><th>Phase</th><th>Status</th><th>Created</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+function wireInviteRowActions() {
+  document.querySelectorAll('[data-toggle-active]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const row = btn.closest('[data-code-id]');
+      const id = row.dataset.codeId;
+      const active = btn.textContent.trim() === 'Activate';
+      btn.disabled = true;
+      try {
+        await apiFetch(`/admin/invite-codes/${encodeURIComponent(id)}`, { method: 'PATCH', body: { active } });
+        loadInvites();
+      } catch (err) {
+        alert(err.message || 'Could not update that code.');
+        btn.disabled = false;
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-delete-code]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const row = btn.closest('[data-code-id]');
+      const id = row.dataset.codeId;
+      if (!confirm(`Delete invite code ${id}? This cannot be undone.`)) return;
+      btn.disabled = true;
+      try {
+        await apiFetch(`/admin/invite-codes/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        loadInvites();
+      } catch (err) {
+        alert(err.message || 'Could not delete that code.');
+        btn.disabled = false;
+      }
+    });
+  });
 }
 
 function renderAuctionCard(a) {

@@ -24,6 +24,14 @@ const HIGH_SENTINEL = '';
  */
 export const CREATABLE_FIELDS = Object.freeze(['name', 'photoUrl', 'gender', 'area']);
 
+/**
+ * Recognized at signup but NEVER stored on the profile — `inviteCode` gates
+ * whether the request is allowed through at all (see inviteCodesService.js
+ * and signupRouter), it is not a durable field. Kept separate from
+ * CREATABLE_FIELDS so createUser's field-copy loop can never pick it up.
+ */
+export const SIGNUP_ONLY_FIELDS = Object.freeze(['inviteCode']);
+
 /** Fields a player may change on their own profile. */
 export const PATCHABLE_FIELDS = Object.freeze(['name', 'photoUrl', 'area']);
 
@@ -171,7 +179,11 @@ function rejectedFields(body, allowed) {
 
 export function validateCreate(body) {
   return {
-    rejected: rejectedFields(body, CREATABLE_FIELDS),
+    // inviteCode is allowed through here (so a legitimate signup body isn't
+    // rejected as "unknown field") — whether it's actually REQUIRED depends on
+    // runtime state (any active invite codes right now?) and is checked
+    // separately in signupRouter, not here. See SIGNUP_ONLY_FIELDS.
+    rejected: rejectedFields(body, [...CREATABLE_FIELDS, ...SIGNUP_ONLY_FIELDS]),
     errors: validateProfile(body ?? {}, { partial: false }),
   };
 }

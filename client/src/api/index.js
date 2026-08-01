@@ -20,7 +20,12 @@ export { setTokenProvider } from './client.js';
  * First-time signup. Requires a verified Firebase token but no existing profile
  * — it is the one endpoint reachable in that state.
  *
- * @param {{name: string, gender: 'M'|'F', photoUrl?: string|null, area?: string|null}} profile
+ * `inviteCode` gates signup only while the community is in a soft-launch
+ * window — the backend checks whether any invite code is currently active
+ * and only then requires a valid one. Harmless to send even when nothing is
+ * gated; the server ignores it in that case.
+ *
+ * @param {{name: string, gender: 'M'|'F', photoUrl?: string|null, area?: string|null, inviteCode?: string}} profile
  */
 export function createUser(profile) {
   return request('/users', { method: 'POST', body: profile });

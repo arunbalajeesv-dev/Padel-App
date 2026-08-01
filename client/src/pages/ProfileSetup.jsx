@@ -34,6 +34,10 @@ export default function ProfileSetup() {
   const [name, setName] = useState('');
   const [gender, setGender] = useState(null);
   const [area, setArea] = useState('');
+  // Only enforced server-side while the community is in a soft-launch window
+  // (see api/index.js's createUser) — shown unconditionally because the
+  // client has no way to know in advance whether it's required right now.
+  const [inviteCode, setInviteCode] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
   const [formError, setFormError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -88,6 +92,7 @@ export default function ProfileSetup() {
         // Omitted when blank rather than sent as '' — an empty string is a
         // valid string to the API and would be stored as a real, empty area.
         ...(area.trim() ? { area: area.trim() } : {}),
+        ...(inviteCode.trim() ? { inviteCode: inviteCode.trim() } : {}),
         // photoUrl is deliberately absent: it is set by uploading below, once
         // a profile document actually exists for it to attach to.
       });
@@ -199,6 +204,27 @@ export default function ProfileSetup() {
           </datalist>
           <p className="form-hint">Lets you filter the leaderboard to players near you.</p>
           {fieldErrors.area && <p className="field-message">{fieldErrors.area}</p>}
+        </div>
+
+        <div className="form-group">
+          <label className="form-label" htmlFor="inviteCode">
+            Invite code <span className="form-optional">if you were given one</span>
+          </label>
+          <input
+            id="inviteCode"
+            className="input-field"
+            type="text"
+            autoCapitalize="characters"
+            value={inviteCode}
+            onChange={(e) => setInviteCode(e.target.value)}
+            placeholder="e.g. PADEL-BETA"
+            aria-invalid={Boolean(fieldErrors.inviteCode)}
+          />
+          <p className="form-hint">
+            Only needed if your organizer asked you to use one while the app is
+            still rolling out.
+          </p>
+          {fieldErrors.inviteCode && <p className="field-message">{fieldErrors.inviteCode}</p>}
         </div>
 
         {/* Not a field — an explanation for the field players expect and will

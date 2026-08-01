@@ -114,3 +114,33 @@ export async function deleteCode(id) {
   await ref.delete();
   return true;
 }
+
+/**
+ * Whether signup should be gated at all right now.
+ *
+ * Deliberately data-driven rather than a separate on/off setting: while at
+ * least one code is active, signup requires one; the moment the last active
+ * code is deactivated or deleted (via the admin panel), signup opens back up.
+ * That is the whole mechanism for ending a soft launch — nothing else to
+ * remember or configure. Single-field equality filter, no composite index.
+ */
+export async function hasActiveCode() {
+  const snap = await getFirestore()
+    .collection(INVITE_CODES_COLLECTION)
+    .where('active', '==', true)
+    .limit(1)
+    .get();
+  return !snap.empty;
+}
+
+/** The active code matching this string, or null if it doesn't exist or is inactive. */
+export async function findActiveCode(code) {
+  const normalized = String(code ?? '').trim().toUpperCase();
+  if (!normalized) return null;
+
+  const snap = await getFirestore().collection(INVITE_CODES_COLLECTION).doc(normalized).get();
+  if (!snap.exists) return null;
+
+  const data = snap.data();
+  return data.active === true ? toView({ id: snap.id, ...data }) : null;
+}

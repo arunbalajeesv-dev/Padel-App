@@ -76,6 +76,15 @@ describe('fieldErrorsFrom — non-validation failures', () => {
     );
   });
 
+  it('attaches the soft-launch invite-gate 403 to the inviteCode field, not "sign in again"', () => {
+    const { fieldErrors, formError } = fieldErrorsFrom(
+      apiError(403, { error: 'Forbidden', reason: 'a valid invite code is required to sign up right now' }),
+    );
+
+    expect(fieldErrors.inviteCode).toMatch(/isn't valid/i);
+    expect(formError).toBeNull();
+  });
+
   it('gives a generic message for anything unexpected', () => {
     expect(fieldErrorsFrom(apiError(500, null)).formError).toMatch(/went wrong/i);
   });

@@ -6,6 +6,8 @@ const userCreate = vi.fn();
 const userUpdate = vi.fn();
 const configGet = vi.fn();
 const searchGet = vi.fn();
+const inviteCodesWhereGet = vi.fn();
+const inviteCodesDocGet = vi.fn();
 
 // Captures the search query shape so tests can assert it folds case correctly.
 const searchQuery = {};
@@ -31,6 +33,12 @@ vi.mock('../../src/config/firebase.js', () => ({
   getFirestore: () => ({
     collection: (name) => {
       if (name === 'config') return { doc: () => ({ get: configGet }) };
+      if (name === 'inviteCodes') {
+        return {
+          where: () => ({ limit: () => ({ get: inviteCodesWhereGet }) }),
+          doc: () => ({ get: inviteCodesDocGet }),
+        };
+      }
       return {
         doc: () => ({ get: userGet, create: userCreate, update: userUpdate }),
         orderBy: (field) => {
@@ -130,6 +138,10 @@ beforeEach(() => {
   userCreate.mockResolvedValue({});
   userUpdate.mockResolvedValue({});
   searchGet.mockResolvedValue({ docs: [] });
+  // No active invite codes by default — the soft-launch gate is data-driven
+  // (see inviteCodesService.hasActiveCode), so an empty collection means
+  // signup is open. Tests that need the gate active override this.
+  inviteCodesWhereGet.mockResolvedValue({ empty: true, docs: [], size: 0 });
 });
 
 describe('POST /users — the signup bootstrap', () => {
@@ -272,6 +284,62 @@ describe('POST /users — the signup bootstrap', () => {
     expect(json).not.toMatch(/"value"|"sigma"|"trustScore"|"rating"/);
     expect(body.isAdmin).toBe(false);
     expect(body.ratingDisplay).toBeCloseTo(2.333, 2);
+  });
+});
+
+describe('POST /users — soft-launch invite gate', () => {
+  it('is open with no active invite codes (the default/post-launch state)', async () => {
+    userGet.mockResolvedValue({ exists: false });
+    // beforeEach already sets inviteCodesWhereGet to empty.
+
+    const { status } = await call('POST', '/users', {
+      token: 'good',
+      body: { name: 'Newbie', gender: 'F' },
+    });
+
+    expect(status).toBe(201);
+  });
+
+  it('403s a missing invite code once at least one code is active', async () => {
+    userGet.mockResolvedValue({ exists: false });
+    inviteCodesWhereGet.mockResolvedValue({ empty: false, docs: [{}], size: 1 });
+
+    const { status, body } = await call('POST', '/users', {
+      token: 'good',
+      body: { name: 'Newbie', gender: 'F' },
+    });
+
+    expect(status).toBe(403);
+    expect(userCreate).not.toHaveBeenCalled();
+    expect(body.reason).toMatch(/invite code/);
+  });
+
+  it('403s a wrong or inactive invite code', async () => {
+    userGet.mockResolvedValue({ exists: false });
+    inviteCodesWhereGet.mockResolvedValue({ empty: false, docs: [{}], size: 1 });
+    inviteCodesDocGet.mockResolvedValue({ exists: true, id: 'WRONG', data: () => ({ code: 'WRONG', active: false }) });
+
+    const { status } = await call('POST', '/users', {
+      token: 'good',
+      body: { name: 'Newbie', gender: 'F', inviteCode: 'wrong' },
+    });
+
+    expect(status).toBe(403);
+    expect(userCreate).not.toHaveBeenCalled();
+  });
+
+  it('lets a valid active invite code through, and never stores it on the profile', async () => {
+    userGet.mockResolvedValue({ exists: false });
+    inviteCodesWhereGet.mockResolvedValue({ empty: false, docs: [{}], size: 1 });
+    inviteCodesDocGet.mockResolvedValue({ exists: true, id: 'BETA1', data: () => ({ code: 'BETA1', active: true }) });
+
+    const { status } = await call('POST', '/users', {
+      token: 'good',
+      body: { name: 'Newbie', gender: 'F', inviteCode: 'beta1' },
+    });
+
+    expect(status).toBe(201);
+    expect(userCreate.mock.calls[0][0]).not.toHaveProperty('inviteCode');
   });
 });
 
