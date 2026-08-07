@@ -170,16 +170,16 @@ must hold — they are **ANDed, never ORed**.
 
 | Tier | Condition | On the leaderboard? |
 |------|-----------|---------------------|
-| **placement** | `RD >= 250` **or** `gamesPlayed < 3` | **No — hidden** |
-| **provisional** | `RD < 250` **and** `gamesPlayed >= 3` | Yes |
+| **placement** | `RD >= 270` **or** `gamesPlayed < 3` | **No — hidden** |
+| **provisional** | `RD < 270` **and** `gamesPlayed >= 3` | Yes |
 | **established** | `RD < 100` **and** `gamesPlayed >= 10` | Yes |
 
-**Bounds are strict.** A player at exactly RD 250 is still in placement; at
+**Bounds are strict.** A player at exactly RD 270 is still in placement; at
 exactly RD 100 they are provisional, not established.
 
 ### ⚠ Launch adjustment — loosened placement exit for a populated board
 
-**The placement-exit bounds above (`RD < 250 AND >= 3 games`) are a deliberate
+**The placement-exit bounds above (`RD < 270 AND >= 3 games`) are a deliberate
 launch-experience decision, not the Step-9 values.** They replace the original
 `RD < 150 AND >= 8 games`.
 
@@ -187,6 +187,42 @@ launch-experience decision, not the Step-9 values.** They replace the original
 the old `RD < 150` bound was the binding constraint and essentially *nobody*
 crossed it early — the launch leaderboard would have been empty. Lowering only
 the games floor would not have helped, because RD, not games, was gating.
+
+#### The 250 → 270 correction: that "~245" assumes FULL matches
+
+**The figure above is a three-set number, and the first week of real play was
+100% single sets.** `M_format` for a single set is 0.65, and by *Rating and
+Confidence Move Together* that scales **RD shrinkage**, not just the delta — so
+RD falls markedly slower. Measured against the real engine, evenly-matched play
+from RD 350:
+
+| Format | RD after 3 matches |
+|---|---|
+| Full match (2–3 sets) | **220** |
+| **Single set** | **253.8** |
+
+**So under single-set play, 3 matches did not clear a 250 bound — it took 4.**
+Live data agreed to the decimal: all eight 3-game players sat between **249.4
+and 252.5**. Three cleared by 0.3–0.6 RD; five were excluded, one by **0.04**.
+That is a coin flip wearing the costume of a threshold, and to the players it
+read as the leaderboard being broken — they were told three matches and played
+three matches.
+
+**270 restores the intended promise for the format actually played**, clearing
+both the evenly-matched case (254) and a ~100-point-gap case (264) with real
+headroom over the worst observed 252.5.
+
+> **It cannot let anyone onto the board early.** `gamesPlayedFloors.provisional`
+> is **ANDed**, so 3 confirmed matches stays the hard floor no matter how loose
+> the RD bound gets. Loosening RD only stops the bound from *spuriously
+> excluding* players who have already met that floor.
+
+**The general lesson, which outlives this number:** a tier threshold calibrated
+against an assumed play pattern is only as good as that assumption. `M_format`
+and `M_repeat` both scale RD shrinkage by design, so **the format a community
+actually plays moves the RD curve** — and a bound set for one format silently
+mis-gates another. Before touching this constant again, re-measure against the
+formats in the real match data, not against a remembered figure.
 
 **What it trades.** A visible board at the cost of rating stability. Players now
 appear with **higher RD and less-settled ratings**, so **early leaderboard
@@ -227,7 +263,7 @@ change has no visible effect on players who have already been rated.
 ### The games floor is not redundant with the RD bound
 
 RD is the usual binding constraint — from RD 350 a player is still around RD 245
-at 3 matches, so the RD bound (`RD < 250` at launch, `RD < 150` originally) is
+at 3 matches, so the RD bound (`RD < 270` at launch, `RD < 150` originally) is
 what gates early, not the games floor. The floor is **not** there to gate.
 
 **It exists so the UI can name a threshold a player can act on.**
@@ -249,7 +285,7 @@ A player can act on "3 more matches." Nobody can act on an RD figure.
 
 Implemented in `src/lib/placement.js` as `placementCountdown`.
 
-Here `placement` is `config.rdThresholds.placement` (250 at launch), and `floor`
+Here `placement` is `config.rdThresholds.placement` (270 at launch), and `floor`
 is `config.gamesPlayedFloors.provisional` (3 at launch) — both read from config,
 never hardcoded.
 
@@ -1300,7 +1336,7 @@ This table mirrors **version 1** and must be kept in step with it.
 | `repeatMultipliers` | `[1.0, 0.7, 0.4, 0.2]` | By prior identical matchups in window; index 0 = first meeting, counts past the end clamp to the last entry |
 | `repeatWindowDays` | 7 | |
 | `maxDeltaPerMatch` | 300 | Bug backstop. Placement players are **exempt**. Sized above the worst legitimate provisional delta on both `lambdaMixed` branches — see *Resolved*. |
-| `rdThresholds.placement` | 250 | `RD >= 250` = placement (hidden from leaderboard). Strict bound. **Launch value** — loosened from 150; see *Tiers and Placement > Launch adjustment*. |
+| `rdThresholds.placement` | 270 | `RD >= 270` = placement (hidden from leaderboard). Strict bound. **Launch value** — loosened from 150, then 250 -> 270 once real play showed single sets land at RD ~254 after 3 matches; see *Tiers and Placement > Launch adjustment*. |
 | `rdThresholds.provisional` | 100 | `RD < 100` required for established. Strict bound. |
 | `gamesPlayedFloors.provisional` | 3 | Minimum games to leave placement. **Launch value** — loosened from the Step-9 value of 8 for a populated board; see *Tiers and Placement > Launch adjustment* and *Resolved*. |
 | `gamesPlayedFloors.established` | 10 | Minimum games to reach established |
@@ -1333,7 +1369,7 @@ matches reference the old config; the rating constants themselves were untouched
 
 | Constant | Status |
 |----------|--------|
-| Placement exit rule | **Decided.** `RD < 250` **and** `gamesPlayed >= 3` (launch values). Both gate — see *Tiers and Placement*. Post-launch target is `RD < 150` / `>= 8 games`. |
+| Placement exit rule | **Decided.** `RD < 270` **and** `gamesPlayed >= 3` (launch values). Both gate — see *Tiers and Placement*. Post-launch target is `RD < 150` / `>= 8 games`. |
 
 ---
 
@@ -1892,7 +1928,7 @@ a classification that only powered a view.
 
 > **Launch override.** The live value is **3**, not 8. The Step-9 analysis below
 > is preserved because it is the number to return to — but for launch the floor
-> was lowered to 3 (and `rdThresholds.placement` raised to 250) so players appear
+> was lowered to 3 (and `rdThresholds.placement` raised to 270) so players appear
 > on the leaderboard after ~3 matches rather than never. This is a deliberate
 > board-populated-over-precision trade; see *Tiers and Placement > Launch
 > adjustment* for the full reasoning and the plan to tighten back. The Step-9

@@ -87,19 +87,37 @@ const CONFIG_V1 = {
   //   provisional  RD <  250 and >= 3 games
   //   established  RD <  100 and >= 10 games
   //
-  // Bounds are STRICT: a player at exactly RD 250 is still in placement.
+  // Bounds are STRICT: a player at exactly RD 270 is still in placement.
   //
   // LAUNCH ADJUSTMENT (not a Step-9 value). Placement exit was loosened from
-  // "RD < 150 AND >= 8 games" to "RD < 250 AND >= 3 games" so players appear on
-  // the leaderboard after ~3 confirmed matches instead of never (at 3 games RD
-  // sits ~245, so the old RD<150 bound was the binding constraint and no one
-  // crossed it early). This deliberately trades rating stability for a populated
-  // board: early top ranks will shuffle noticeably as high-RD ratings converge.
-  // Tighten back toward the Step-9 values once match volume makes an empty board
-  // no longer a risk. Only the tier thresholds changed — the rating math is
-  // untouched. See CLAUDE.md > "Tiers and Placement" and > Resolved.
+  // "RD < 150 AND >= 8 games" to "RD < 270 AND >= 3 games" so players appear on
+  // the leaderboard after ~3 confirmed matches instead of never. This
+  // deliberately trades rating stability for a populated board: early top ranks
+  // will shuffle noticeably as high-RD ratings converge. Tighten back toward the
+  // Step-9 values once match volume makes an empty board no longer a risk. Only
+  // the tier thresholds changed — the rating math is untouched. See CLAUDE.md >
+  // "Tiers and Placement" and > Resolved.
+  //
+  // RAISED 250 -> 270 after launch, because 250 was calibrated on an assumption
+  // that did not survive contact with how this community actually plays.
+  //
+  // The "RD sits ~245 at 3 games" figure behind 250 assumes FULL matches
+  // (M_format 1.0). Every match logged in the first week was a SINGLE SET, and
+  // single sets are deliberately 0.65 of an observation that scales RD
+  // shrinkage as well as the delta (see "Rating and Confidence Move Together").
+  // Measured against the real engine, RD after 3 matches is ~220 for full
+  // matches but ~254 for single sets — ABOVE the 250 bound. Live data agreed
+  // exactly: all eight 3-game players landed in 249.4-252.5, so three squeaked
+  // in by 0.3-0.6 RD and five were excluded by as little as 0.04. That is a
+  // coin flip, not a distinction, and it read to players as the board being
+  // broken.
+  //
+  // 270 clears the modelled single-set cases (254 evenly matched, 264 for a
+  // ~100-point gap) with real headroom over the worst observed 252.5. It cannot
+  // let anyone onto the board early: `gamesPlayedFloors.provisional` is ANDed,
+  // so 3 confirmed matches remains the hard floor whatever RD does.
   rdThresholds: {
-    placement: 250,
+    placement: 270,
     provisional: 100,
   },
   gamesPlayedFloors: {
